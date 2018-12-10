@@ -5,7 +5,7 @@ Contributions are totally welcome. However, contributors must sign a Contributor
 ## Release process
 
 1. Update version number and information at `setup.py` and `NEWS.md`.
-2. You must be maintainer at [carto-print pypi repo](https://pypi.python.org/pypi/carto-print/).
+2. You must be maintainer at carto-report pypi repo.
 3. Prepare a `~/.pypirc` file:
 
 ```
@@ -24,6 +24,6 @@ password=your_password
 ```
 
 4. Upload the package to the test repository: `python setup.py sdist upload -r pypitest`.
-5. Install it in a new environment: `pip install --index-url=https://test.pypi.org/simple --extra-index-url=https://pypi.org/simple carto-print`.
+5. Install it in a new environment: `pip install --index-url=https://test.pypi.org/simple --extra-index-url=https://pypi.org/simple carto-report`.
 6. Test it.
 7. Release it: `python setup.py sdist upload -r pypi`.
