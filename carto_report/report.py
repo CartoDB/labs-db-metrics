@@ -28,9 +28,10 @@ class Reporter(object):
 
   def __init__(self, CARTO_USER, CARTO_API_URL, CARTO_ORG, CARTO_API_KEY, USER_QUOTA):
     self.CARTO_USER = CARTO_USER
-    self.CARTO_USER = CARTO_USER
-    self.CARTO_USER = CARTO_USER
-    self.CARTO_USER = CARTO_USER
+    self.CARTO_API_URL = CARTO_API_URL
+    self.CARTO_ORG = CARTO_ORG
+    self.CARTO_API_KEY = CARTO_API_KEY
+    self.USER_QUOTA = USER_QUOTA
 
   def report(self):
 

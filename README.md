@@ -29,13 +29,13 @@ In this example... TBD
 ```python
 from carto_report.report import Reporter
 
-reporter = Reporter('CARTO_USER', 'CARTO_ORG', 'API_KEY', STORAGE_MB)
+reporter = Reporter('CARTO_USER', 'CARTO_API_URL', 'CARTO_ORG', 'API_KEY', USER_QUOTA)
 ```
 
 Where the signature of the `Reporter` constructor is as follows:
 
 ```
-Printer(CARTO_USER, CARTO_ORG, API_KEY, STORAGE_MB)
+Reporter(CARTO_USER, CARTO_API_URL, CARTO_ORG, API_KEY, USER_QUOTA)
 ```
 
 Known Issues
