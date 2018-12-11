@@ -153,11 +153,11 @@ class Reporter(object):
 
     #percentage
     logger.info('''
-      * Account with... \r\n
-      {} non-geocoded datasets ({} %) \r\n
-      {} geocoded datasets ({} %) \r\n
-      {} point datasets ({} %) \r\n
-      {} polygon datasets ({} %) \r\n
+      * Account with..., 
+      {} non-geocoded datasets ({} %), 
+      {} geocoded datasets ({} %), 
+      {} point datasets ({} %), 
+      {} polygon datasets ({} %), 
       {} lines datasets ({} %)
     '''.format(none_tbls, pc_none, geo, pc_geo, points, pc_points, polys, pc_polys, lines, pc_lines))
 
@@ -236,7 +236,7 @@ class Reporter(object):
 
         # check all columns name from table
         columns_table = "select column_name, data_type FROM information_schema.columns \
-            WHERE table_schema ='" + CARTO_USER + "' \
+            WHERE table_schema ='" + self.CARTO_USER + "' \
             AND table_name ='" + i + "';"
 
         # apply and get results from SQL API request
@@ -255,7 +255,7 @@ class Reporter(object):
         # apply and get results from SQL API request
         indexes = sql.send("select indexname, indexdef from pg_indexes \
           where tablename = '" + i + "' \
-          AND schemaname = '" + CARTO_USER + "';")
+          AND schemaname = '" + self.CARTO_USER + "';")
         for k, v in indexes.items():
             if k == 'rows':
                 for itr in v:
@@ -548,7 +548,7 @@ class Reporter(object):
         </head>
         <body>
             <div class="header">
-                <h1>{{ CARTO_USER }} CARTO Metrics report</h1>
+                <h1>{{ self.CARTO_USER }} CARTO Metrics report</h1>
                 <h2>Date: {{today}}</h2>
             </div>
             
@@ -620,7 +620,7 @@ class Reporter(object):
     rtemplate = Environment(loader=BaseLoader()).from_string(template)
 
     html_template = rtemplate.render({
-            'CARTO_USER':CARTO_USER,
+            'CARTO_USER': self.CARTO_USER,
         
             'today': today,
         
