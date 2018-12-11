@@ -1,8 +1,9 @@
+# -*- coding: UTF-8 -*-
+
 import logging
 import warnings
 import re
 import datetime as dt
-from google.colab import files
 
 import pandas as pd
 from pandas.io.json import json_normalize
@@ -10,7 +11,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import mpld3
-mpld3.enable_notebook()
 from mpld3 import fig_to_html
 
 from jinja2 import Environment, BaseLoader
@@ -51,7 +51,6 @@ class Printer(object):
     sql = SQLClient(auth_client)
     vm = VisualizationManager(auth_client)
     dm = DatasetManager(auth_client)
-    nmm = NamedMapManager(auth_client)
 
     ### donwload datasets/maps information
 
@@ -104,7 +103,7 @@ class Printer(object):
     sync = len(dsets) - len(tables_df.loc[tables_df['synchronization'] == 'None Sync'])
     logger.info('{} sync tables'.format(sync))
 
-    ### 5. Get geometry information
+    ### Get geometry information
 
     #clean geometry column
     tables_df['geom_type'] = tables_df.geometry.str[0]
@@ -647,7 +646,7 @@ class Printer(object):
 
     ### export report as HTML
 
-    with open('index.html', 'w') as f:
-      f.write(html_template)
-
-    files.download('index.html')
+    with open('index.html', 'w') as html_file:
+      html_file.write(html_template)
+    
+    return html_file

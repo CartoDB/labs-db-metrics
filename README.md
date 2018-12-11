@@ -27,7 +27,7 @@ Usage Example
 In this example... TBD
 
 ```python
-from carto.report import Reporter
+from carto_report.report import Reporter
 
 reporter = Reporter('CARTO_USER', 'CARTO_ORG', 'API_KEY', STORAGE_MB)
 ```
