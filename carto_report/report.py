@@ -656,14 +656,5 @@ class Reporter(object):
             'html_fig2': fig_to_html(fig2)
         })
     html_report = HTML(html_template)
-
-    ### get the report
-
-    report = display(html_report)
-
-    ### export report as HTML
-
-    with open('index.html', 'w') as html_file:
-      html_file.write(html_template)
     
-    return html_file
+    return html_report
