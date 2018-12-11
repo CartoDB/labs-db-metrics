@@ -376,7 +376,7 @@ class Reporter(object):
       total_size_tbls = round(cdb_tabls['size'].sum(),2)
 
     ## quota
-    real_storage = USER_QUOTA*2
+    real_storage = self.USER_QUOTA*2
     used_storage = round(total_size_tbls,2)
     pc_used = round(used_storage*100.00/real_storage,2)
     left_storage = round(real_storage - used_storage,2)
@@ -384,7 +384,7 @@ class Reporter(object):
 
     credits = lds[['Monthly Quota', 'Used Quota', '% Used Quota']]
     credits['% Quota Left'] = 100.00 - lds['% Used Quota']
-    credits.loc['storage'] = [USER_QUOTA, used_storage, pc_used, pc_left]
+    credits.loc['storage'] = [self.USER_QUOTA, used_storage, pc_used, pc_left]
 
     ### create data visualizations
 
