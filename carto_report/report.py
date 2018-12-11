@@ -114,7 +114,6 @@ class Reporter(object):
         tables_df.synchronization = tables_df.synchronization.fillna('None Sync')
         sync = len(dsets) - len(tables_df.loc[tables_df['synchronization'] == 'None Sync'])
         logger.info('{} sync tables'.format(sync))
-        break
     except:
         logger.info('Sync tables unable to be retrieved.')
         sync = 0
