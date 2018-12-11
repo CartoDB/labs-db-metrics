@@ -100,9 +100,24 @@ class Reporter(object):
     public = len(tables_df.loc[tables_df['privacy'] == 'PUBLIC'])
     logger.info('{} private tables, {} tables shared with link and {} public tables'.format(private, link, public))
 
-    #sync
-    sync = len(dsets) - len(tables_df.loc[tables_df['synchronization'] == 'None Sync'])
-    logger.info('{} sync tables'.format(sync))
+    #get sync and privacy information
+logger.info('Getting privacy and sync information...')
+
+#privacy
+private = len(tables_df.loc[tables_df['privacy'] == 'PRIVATE'])
+link = len(tables_df.loc[tables_df['privacy'] == 'LINK'])
+public = len(tables_df.loc[tables_df['privacy'] == 'PUBLIC'])
+logger.info('{} private tables, {} tables shared with link and {} public tables'.format(private, link, public))
+
+#sync
+try:
+  tables_df.synchronization = tables_df.synchronization.fillna('None Sync')
+  sync = len(dsets) - len(tables_df.loc[tables_df['synchronization'] == 'None Sync'])
+  logger.info('{} sync tables'.format(sync))
+except:
+  logger.info('Sync tables unable to be retrieved.')
+  sync = 0
+  logger.info('{} tables will be returned.'.format(sync)
 
     ### Get geometry information
 
