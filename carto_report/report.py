@@ -47,8 +47,8 @@ class Reporter(object):
     logger = logging.getLogger()
 
     ### CARTO clients
-    auth_client = APIKeyAuthClient(CARTO_API_URL, CARTO_API_KEY, CARTO_ORG)
-    auth_api_client = AuthAPIClient(CARTO_API_URL, CARTO_API_KEY, CARTO_ORG)
+    auth_client = APIKeyAuthClient(self.CARTO_API_URL, self.CARTO_API_KEY, self.CARTO_ORG)
+    auth_api_client = AuthAPIClient(self.CARTO_API_URL, self.CARTO_API_KEY, self.CARTO_ORG)
     sql = SQLClient(auth_client)
     vm = VisualizationManager(auth_client)
     dm = DatasetManager(auth_client)
