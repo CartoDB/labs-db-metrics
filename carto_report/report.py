@@ -24,7 +24,7 @@ from carto.maps import NamedMapManager, NamedMap
 
 ### printer constructor
 
-class Printer(object):
+class Reporter(object):
 
   def __init__(self, CARTO_USER, CARTO_API_URL, CARTO_ORG, CARTO_API_KEY, USER_QUOTA):
     self.CARTO_USER = CARTO_USER
