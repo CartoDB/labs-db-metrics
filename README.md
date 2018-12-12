@@ -47,5 +47,5 @@ Known Issues
 - [ ] Improve report layout and style (with Airship).
 - [ ] Add assertions.
 - [ ] Use conditionals within the template.
-- [ ] Add debug loggins to bet feedback, especially when getting all tables and analysis.
+- [x] Add debug loggins to bet feedback, especially when getting all tables and analysis.
 - [ ] Include logging as a proper library.

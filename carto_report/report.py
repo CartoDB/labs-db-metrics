@@ -197,7 +197,7 @@ class Reporter(object):
     # define array to store all the table sizes
     arr_size = []
 
-
+    logger.info('Getting table sizes...')
     # create array with values of the table sizes
     for i in all_tables:
         try:
@@ -217,10 +217,10 @@ class Reporter(object):
     # define count variable
     sum = 0
 
-
     # define list of tuples
     tupleList = []
 
+    logger.info('Getting cartodbfied and analysis tables...')
     # start iterating over array
     for i in all_tables:
         # check column names
@@ -265,6 +265,8 @@ class Reporter(object):
             cartodbfied = 'YES'
         else:
             cartodbfied = 'NO'
+        
+        logger.info('Retrieving analysis and table size information...)
 
         # create graphs according on the table size
         try:
@@ -287,7 +289,7 @@ class Reporter(object):
                 'cartodbfied': cartodbfied})
 
         except:
-            print('Error at: ' + str(i))
+            logger.info('Error at: ' + str(i)
             
     logger.info('Retrieved {} tables with size information.'.format(len(tupleList)))
 
