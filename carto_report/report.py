@@ -14,7 +14,6 @@ import mpld3
 from mpld3 import fig_to_html
 
 from jinja2 import Environment, BaseLoader
-from IPython.core.display import display, HTML
 
 from carto.sql import SQLClient
 from carto.auth import APIKeyAuthClient, AuthAPIClient
@@ -48,7 +47,6 @@ class Reporter(object):
 
     ### CARTO clients
     auth_client = APIKeyAuthClient(self.CARTO_API_URL, self.CARTO_API_KEY, self.CARTO_ORG)
-    auth_api_client = AuthAPIClient(self.CARTO_API_URL, self.CARTO_API_KEY, self.CARTO_ORG)
     sql = SQLClient(auth_client)
     vm = VisualizationManager(auth_client)
     dm = DatasetManager(auth_client)
@@ -151,16 +149,12 @@ class Reporter(object):
     points = len(tables_df.loc[tables_df['geom_type'].isin(['ST_Point'])])
     pc_points = round(points*100.00/len(tables_df),2)
 
-    #percentage
-    logger.info('''
-      * Account with..., 
-      {} non-geocoded datasets ({} %), 
-      {} geocoded datasets ({} %), 
-      {} point datasets ({} %), 
-      {} polygon datasets ({} %), 
-      {} lines datasets ({} %)
-    '''.format(none_tbls, pc_none, geo, pc_geo, points, pc_points, polys, pc_polys, lines, pc_lines))
-
+    logger.info('{} non-geocoded datasets retrieved ({} %)'.format(none_tbls, pc_none)) 
+    logger.info('{} geocoded datasets ({} %)'.format(geo, pc_geo))
+    logger.info('{} point datasets ({} %)'.format(points, pc_points))
+    logger.info('{} polygon datasets ({} %)'.format(polys, pc_polys))
+    logger.info('{} lines datasets ({} %)'.format(lines, pc_lines))
+    
     ### get Data Service quota information
 
     #retrieve all data from account's maps
@@ -320,7 +314,7 @@ class Reporter(object):
       cdb_tabls = pd.DataFrame(columns=['name', 'size'])
 
     if len(analysis_tbls) > 0:
-
+      logger.info('Replacing analysis table ids with the right analysis name.')  
       #get unique analyis id
       analysis_tbls['id'] = analysis_tbls['name'].str.split("_", n = 3, expand = True)[1] 
 
@@ -346,6 +340,7 @@ class Reporter(object):
     ### prepare template and report variables
 
     # prepare variables
+    logger.info('Preparing all variables...')
 
     #date
     now = dt.datetime.now()
@@ -360,9 +355,9 @@ class Reporter(object):
 
     ## datasets metrics
     total_dsets = len(tables_df)
-    top_5_dsets_date = tables_df[['name', 'created', 'privacy']]
+    top_5_dsets_date = tables_df[['name', 'created', 'privacy', 'synchronization']]
     top_5_dsets_date = top_5_dsets_date.sort_values(['created'], ascending=False).head()
-    top_5_dsets_date = top_5_dsets_date.rename(columns={'created': 'Date', 'name': 'Dataset', 'privacy': 'Privacy'})
+    top_5_dsets_date = top_5_dsets_date.rename(columns={'created': 'Date', 'name': 'Dataset', 'privacy': 'Privacy', 'synchronization': 'sync'})
     top_5_dsets_date = top_5_dsets_date.set_index('Dataset')
 
     top_5_dsets_size = cdb_tabls.sort_values(['size'], ascending=False).head()
@@ -387,6 +382,7 @@ class Reporter(object):
     credits.loc['storage'] = [self.USER_QUOTA, used_storage, pc_used, pc_left]
 
     ### create data visualizations
+    logger.info('Building data visualizations...')
 
     # vertical bar chart for % quota
 
@@ -435,6 +431,7 @@ class Reporter(object):
     plt.tight_layout()
 
     ### create a HTML template
+    logger.info('Preparting HTML template...')
 
     template = """
     <!DOCTYPE html>
@@ -619,7 +616,7 @@ class Reporter(object):
     """
     rtemplate = Environment(loader=BaseLoader()).from_string(template)
 
-    html_template = rtemplate.render({
+    return rtemplate.render({
             'CARTO_USER': self.CARTO_USER,
         
             'today': today,
@@ -655,6 +652,3 @@ class Reporter(object):
             'html_fig1': fig_to_html(fig1),
             'html_fig2': fig_to_html(fig2)
         })
-    html_report = HTML(html_template)
-    
-    return html_report

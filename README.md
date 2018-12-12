@@ -30,6 +30,9 @@ In this example... TBD
 from carto_report.report import Reporter
 
 reporter = Reporter('CARTO_USER', 'CARTO_API_URL', 'CARTO_ORG', 'API_KEY', USER_QUOTA)
+
+with open('/tmp/report.html','w') as writer:
+    writer.write(reporter.report())
 ```
 
 Where the signature of the `Reporter` constructor is as follows:
@@ -41,4 +44,8 @@ Reporter(CARTO_USER, CARTO_API_URL, CARTO_ORG, API_KEY, USER_QUOTA)
 Known Issues
 ============
 
-TBD
+- [ ] Improve report layout and style (with Airship).
+- [ ] Add assertions.
+- [ ] Use conditionals within the template.
+- [ ] Add debug loggins to bet feedback, especially when getting all tables and analysis.
+- [ ] Include logging as a proper library.
