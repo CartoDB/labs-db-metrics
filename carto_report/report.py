@@ -1,7 +1,6 @@
 # -*- coding: UTF-8 -*-
 
 import logging
-import warnings
 import re
 import datetime as dt
 
@@ -35,15 +34,8 @@ class Reporter(object):
   def report(self):
 
     ### logger, variables and CARTO clients
-
-    warnings.filterwarnings('ignore')
-
-    # logger (better than print)
-    logging.basicConfig(
-        level=logging.INFO,
-        format=' %(asctime)s - %(levelname)s - %(message)s',
-        datefmt='%I:%M:%S %p')
-    logger = logging.getLogger()
+    logger = logging.getLogger('carto_report')
+    logger.addHandler(logging.NullHandler())
 
     ### CARTO clients
     auth_client = APIKeyAuthClient(self.CARTO_API_URL, self.CARTO_API_KEY, self.CARTO_ORG)
