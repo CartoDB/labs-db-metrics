@@ -44,7 +44,7 @@ Reporter(CARTO_USER, CARTO_API_URL, CARTO_ORG, API_KEY, USER_QUOTA)
 Known Issues
 ============
 
-- [ ] Improve report layout and style (with Airship).
+- [x] Improve report layout and style (with Airship).
 - [ ] Add assertions.
 - [ ] Use conditionals within the template.
 - [x] Add debug loggins to bet feedback, especially when getting all tables and analysis.

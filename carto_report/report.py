@@ -342,6 +342,9 @@ class Reporter(object):
     # prepare variables
     logger.info('Preparing all variables...')
 
+    #user
+    user = self.CARTO_USER
+
     #date
     now = dt.datetime.now()
     today = now.strftime("%Y-%m-%d %H:%M")
@@ -411,7 +414,7 @@ class Reporter(object):
     ax2.legend(handles, labels, loc='upper left', bbox_to_anchor=(0,1,1,0))
     
     # Show graphic
-    plt.tight_layout()
+    #plt.tight_layout()
 
     # horizontal bar chart for analysis count
 
@@ -428,7 +431,7 @@ class Reporter(object):
     ax1.set_xlabel("Analysis Count")
     ax1.set_yticks(names_positions)
     ax1.set_yticklabels(analysis_names)
-    plt.tight_layout()
+    #plt.tight_layout()
 
     ### create a HTML template
     logger.info('Preparing HTML template...')
@@ -459,10 +462,10 @@ class Reporter(object):
 
         <header class="as-toolbar">
             <div class="as-toolbar__item as-title">
-            {{ self.CARTO_USER }} CARTO Metrics Report 
+                CARTO Metrics Report 
             </div>
             <div class="as-toolbar__item as-display--block as-p--12 as-subheader as-bg--complementary">
-            {{today}}
+                {{ user }} at {{today}}
             </div>
         </header>
 
@@ -582,12 +585,12 @@ class Reporter(object):
                 </p>
                 </div>
                 
-                <div class="as-box" id="lds-table">
-                    {{lds.to_html()}}
+                <div class="as-box" id="tables-size">
+                    {{top_5_dsets_size.to_html()}}
                 </div>
 
-                <div class="as-box" id="lds-fig">
-                    {{html_fig2}}
+                <div class="as-box" id="tables-date">
+                    {{top_5_dsets_date.to_html()}}
                 </div>
 
             </div>
@@ -605,7 +608,7 @@ class Reporter(object):
     rtemplate = Environment(loader=BaseLoader()).from_string(template)
 
     return rtemplate.render({
-            'CARTO_USER': self.CARTO_USER,
+            'user': user,
         
             'today': today,
         
@@ -640,5 +643,3 @@ class Reporter(object):
             'html_fig1': fig_to_html(fig1),
             'html_fig2': fig_to_html(fig2)
         })
-
-    logger.info('HTML report generated.')
