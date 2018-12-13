@@ -414,7 +414,7 @@ class Reporter(object):
     ax2.legend(handles, labels, loc='upper left', bbox_to_anchor=(0,1,1,0))
     
     # Show graphic
-    #plt.tight_layout()
+    plt.tight_layout()
 
     # horizontal bar chart for analysis count
 
@@ -431,7 +431,7 @@ class Reporter(object):
     ax1.set_xlabel("Analysis Count")
     ax1.set_yticks(names_positions)
     ax1.set_yticklabels(analysis_names)
-    #plt.tight_layout()
+    plt.tight_layout()
 
     ### create a HTML template
     logger.info('Preparing HTML template...')
