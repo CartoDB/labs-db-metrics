@@ -19,6 +19,7 @@ username=your_username
 password=your_password
 
 [pypitest]
+repository: https://test.pypi.org/legacy/
 username=your_username
 password=your_password
 ```
