@@ -265,8 +265,6 @@ class Reporter(object):
             cartodbfied = 'YES'
         else:
             cartodbfied = 'NO'
-        
-        logger.info('Retrieving analysis and table size information...')
 
         # create graphs according on the table size
         try:
@@ -433,7 +431,7 @@ class Reporter(object):
     plt.tight_layout()
 
     ### create a HTML template
-    logger.info('Preparting HTML template...')
+    logger.info('Preparing HTML template...')
 
     template = """
         <!DOCTYPE html>
@@ -642,3 +640,5 @@ class Reporter(object):
             'html_fig1': fig_to_html(fig1),
             'html_fig2': fig_to_html(fig2)
         })
+
+    logger.info('HTML report generated.')
