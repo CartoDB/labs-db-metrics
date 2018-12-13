@@ -266,7 +266,7 @@ class Reporter(object):
         else:
             cartodbfied = 'NO'
         
-        logger.info('Retrieving analysis and table size information...)
+        logger.info('Retrieving analysis and table size information...')
 
         # create graphs according on the table size
         try:
@@ -289,7 +289,7 @@ class Reporter(object):
                 'cartodbfied': cartodbfied})
 
         except:
-            logger.info('Error at: ' + str(i)
+            logger.info('Error at: ' + str(i))
             
     logger.info('Retrieved {} tables with size information.'.format(len(tupleList)))
 
@@ -436,185 +436,173 @@ class Reporter(object):
     logger.info('Preparting HTML template...')
 
     template = """
-    <!DOCTYPE html>
-    <html lang="en">
+        <!DOCTYPE html>
+        <html lang="en">
+
         <head>
-            <meta charset="UTF-8">
-            <title>CARTO Metrics Report</title>
-            <link href="https://fonts.googleapis.com/css?family=Montserrat:600" rel="stylesheet">
-            <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
-            <style>
-                h1 {
-                    color: #2E3C43;
-                    line-height: 32px;
-                    font-family: 'Montserrat', Arial, Helvetica, sans-serif;
-                    font-size: 30px;
-                    font-weight: 600;
-                }
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <title>CARTO Database Metrics Report Template</title>
+        <link rel="stylesheet" href="https://libs.cartocdn.com/airship-style/v1.0.3/airship.css">
+        <script src="https://libs.cartocdn.com/airship-components/v1.0.3/airship.js"></script>
+        <style>
+        .as-sidebar{
+            width: 33.33%;
+        }
+        .as-box{
+            border-bottom: 1px solid #F5F5F5;
+        }
+        </style>
 
-                h2 {
-                    color: #2E3C43;
-                    line-height: 32px;
-                    font-family: 'Montserrat', Arial, Helvetica, sans-serif;
-                    font-size: 24px;
-                    font-weight: 600;
-                }
-
-                h3 {
-                    color: #2E3C43;
-                    line-height: 32px;
-                    font-family: 'Montserrat', Arial, Helvetica, sans-serif;
-                    font-size: 20px;
-                    font-weight: 600;
-                }
-
-                p {
-                    color: #747D82;
-                    font-size: 18px;
-                    line-height: 16px;
-                    font-family: 'Open Sans', Arial, Helvetica, sans-serif;
-                    font-weight: 400;
-                }
-
-                .header {
-                    text-align: center;
-                }
-
-                .left {
-                    color: #009392;
-                }
-
-                .used {
-                    color: #cf597e;
-                }
-
-                .public {
-                    color: #48CA7F;
-                }
-
-                .link {
-                    color: #F76C43;
-                }
-
-                .private {
-                    color: #D63C2E;
-                }
-
-                ul {
-                    margin: 12px 0 0 0;
-
-                }
-
-                li {
-                    list-style-type: none;
-                    margin-bottom: 8px;
-                    color: #747D82;
-                    font-size: 16px;
-                    line-height: 16px;
-                    font-family: 'Open Sans', Arial, Helvetica, sans-serif;
-                    font-weight: 400;
-                }
-
-                .box {
-                    box-align: center;
-                    margin: auto;
-                    margin-bottom: 18px;
-                    padding: 3px 16px 18px;
-                    border: 1px solid #DEDEDE;
-                    box-shadow: 0px 1px 5px 0px rgba(0, 0, 0, 0.14);
-                    -webkit-border-radius: 6px;
-                    -moz-border-radius: 6px;
-                    border-radius: 6px;
-                    -moz-background-clip: padding;
-                    -webkit-background-clip: padding-box;
-                    background-clip: padding-box;
-                    width: 50%;
-
-                    p {
-                    margin-bottom: 4px;
-                    }
-
-                }
-
-                .fig {
-                    display: block;
-                    margin-left: auto;
-                    margin-right: auto;
-                    margin-bottom: 6px;
-                    width: 50%;
-                }
-            </style>
         </head>
-        <body>
-            <div class="header">
-                <h1>{{ self.CARTO_USER }} CARTO Metrics report</h1>
-                <h2>Date: {{today}}</h2>
-            </div>
-            
-            <div class="box">
-                <h2>Storage Quota</h2>
-                <p>Account Storage: <b>{{real_storage}} MB</b></p>
-                <p>Used Quota: {{used_storage}} MB, <span class="used">{{pc_used}} %</span></p>
-                <p>Quota Left: {{left_storage}} MB, <span class="left">{{pc_left}} %</span></p>
-            </div>
 
-            <div class="box">
-                <h2>Location Data Services</h2>
-                <div class="fig">
-                    {{lds.to_html()}}
-                </div>
-                <div class="fig">
-                    {{html_fig2}}
-                </div>
-            </div>
+        <body class="as-app-body as-app">
 
-            <div class="box">
-                <h2>Maps and Analysis</h2>
-                <p>Number of maps: {{total_maps}}</p>
-                <p>Number of analyses: {{total_analysis}}</p>
-                <p>Analyses Size: {{total_size_analysis}} MB</p>
-                <h3>Analysis Summary</h3>
-                <div class="fig">
+        <header class="as-toolbar">
+            <div class="as-toolbar__item as-title">
+            {{ self.CARTO_USER }} CARTO Metrics Report 
+            </div>
+            <div class="as-toolbar__item as-display--block as-p--12 as-subheader as-bg--complementary">
+            {{today}}
+            </div>
+        </header>
+
+        <div class="as-content">
+            <aside class="as-sidebar as-sidebar--left">
+            <div class="as-container">
+                <h1 class="as-box as-title as-font--medium">
+                Maps and Analysis
+                </h1>
+
+                <div class="as-box">
+                    <h2 class="as-title">
+                        Maps
+                    </h2>
+                    <p class="as-body as-font--medium">Number of maps: {{total_maps}}</p>
+                    <div class="as-box" id="maps-table">
+                        {{top_5_maps_date.to_html()}}
+                    </div>
+                </div>
+
+                <div class="as-box">
+                <h2 class="as-title">
+                    Analysis
+                </h2>
+                <ul class="as-list">
+                    <li class="as-list__item">Number of analyses: {{total_analysis}}</li>
+                    <li class="as-list__item">Analyses Size: {{total_size_analysis}} MB</li>
+                </ul>
+                <div class="as-box" id="analysis-table">
                     {{analysis_df.to_html()}}
                 </div>
-                <div class="fig">
+                <div class="as-box" id="analysis-fig">
                     {{html_fig1}}
                 </div>
-                <h3>Top5 Recent Maps</h3>
-                <div class="fig">
-                    {{top_5_maps_date.to_html()}}
                 </div>
             </div>
+            </aside>
 
-            <div class="box">
-                <h2>Datasets</h2>
-                <p>Number of tables: {{total_dsets}}</p>
-                <p>Sync tables: {{sync}}</p>
-                <p>Tables Size: {{total_size_tbls}} MB</p>
-                <p>Privacy:</p>
-                <ul>
-                    <li>🔒 Private: <span class="private">{{private}} tables</span></li>
-                    <li>🔗 Shared with link: <span class="link"">{{link}} tables</span></li>
-                    <li>🔓 Public: <span class="public">{{public}} tables</span></li>
-                </ul>
-                <p>📌 Number of geocoded tables: {{geo}}</p>
-                <ul>
-                    <li>🔴 Points: {{points}} tables</li>
-                    <li>〰️ Lines: {{lines}} tables</li>
-                    <li>⬛ Polygons: {{polys}} tables</li>
-                </ul>
-                <p>Number of non-geocoded tables: {{none_tbls}} tables</p>
-                <h3>Top5 Recent Datasets</h3>
-                    <div class="fig">
-                        {{top_5_dsets_date.to_html()}}
+            <main class="as-main">
+
+                <h1 class="as-box as-title as-font--medium">
+                    Storage Quota & LDS
+                </h1>
+
+                <div class="as-box">
+                    <h2 class="as-title">
+                        Storage Quota
+                    </h2>
+
+                    <ul class="as-list">
+                        <li class="as-list__item as-font--medium">Account Storage: {{real_storage}} MB</li>
+                        <li class="as-list__item as-color--support-01">Used Quota: {{used_storage}} MB, {{pc_used}} %</li>
+                        <li class="as-list__item as-color--complementary">Quota Left: {{left_storage}} MB, {{pc_left}} %</li>
+                    </ul>
+
+                </div>
+
+                <div class="as-box">
+                    <h2 class="as-title">
+                        Location Data Services
+                    </h2>
+                    
+                    <div class="as-box" id="lds-table">
+                        {{lds.to_html()}}
                     </div>
-                    <h3>Top5 Dataset by Size</h3>
-                    <div class="fig">
-                        {{top_5_dsets_size.to_html()}}
+
+                    <div class="as-box" id="lds-fig">
+                        {{html_fig2}}
                     </div>
+
+                </div>
+
+            </main>
+
+            <aside class="as-sidebar as-sidebar--right">
+            <div class="as-container">
+                <div class="as-box as-title as-font--medium">
+                Datasets
+                </div>
+
+                <div class="as-box">
+                    <h2 class="as-title">
+                        Datasets Summary
+                    </h2>
+                    <ul class="as-list">
+                        <li class="as-list__item as-font--medium">Number of tables: {{total_dsets}}</li>
+                        <li class="as-list__item">Sync tables: {{sync}}</li>
+                        <li class="as-list__item">Tables Size: {{total_size_tbls}} MB</li>
+                    </ul>
+                </div>
+
+                <div class="as-box">
+                <h2 class="as-title">
+                    Privacy
+                </h2>
+                <ul class="as-list">
+                    <li class="as-list__item as-color--support-01">🔒 Private: {{private}} tables</li>
+                    <li class="as-list__item as-color--support-02">🔗 Shared with link: {{link}} tables</li>
+                    <li class="as-list__item as-color--support-03">🔓 Public: {{public}} tables</li>
+                </ul>
+                </div>
+
+                <div class="as-box">
+                <h2 class="as-title">
+                    Geometry
+                </h2>
+                <p class="as-body">
+                    Number of geocoded tables: {{geo}}
+                </p>
+                <ul class="as-list">
+                    <li class="as-list__item">📌 Points: {{points}} tables</li>
+                    <li class="as-list__item">〰️ Lines: {{lines}} tables</span></li>
+                    <li class="as-list__item">⬛ Polygons: {{polys}} tables</li>
+                </ul>
+                <p class="as-body">
+                    Number of non-geocoded tables: {{none_tbls}}
+                </p>
+                </div>
+                
+                <div class="as-box" id="lds-table">
+                    {{lds.to_html()}}
+                </div>
+
+                <div class="as-box" id="lds-fig">
+                    {{html_fig2}}
+                </div>
+
             </div>
+            </aside>
+        </div>
+        <script>
+            // add airship class to tables 
+            const tableElements = document.querySelectorAll('table');
+            tableElements.forEach(element => element.classList.add("as-table"));
+        </script>
         </body>
-    </html>
+
+        </html>
     """
     rtemplate = Environment(loader=BaseLoader()).from_string(template)
 
