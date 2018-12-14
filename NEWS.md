@@ -1,5 +1,9 @@
 # NEWS
 
+## 2018-12-14 version 0.0.3
+
+* No changes
+
 ## 2018-12-13 version 0.0.2
 
 * Minor fixes
