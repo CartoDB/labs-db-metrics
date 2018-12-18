@@ -43,338 +43,381 @@ class Reporter(object):
     vm = VisualizationManager(auth_client)
     dm = DatasetManager(auth_client)
 
-    ### donwload datasets/maps information
-
-    #helper
-    def getKey(obj):
-        return obj.updated_at
-
-    #retrieve all data from account's maps
-    logger.info('Getting all maps data...')
     vizs = vm.all()
-    logger.info('Retrieved {} maps'.format(len(vizs)))
-
-    maps = [{
-        'name': viz.name, 
-        'created': viz.created_at, 
-        'url': viz.url
-    } for viz in sorted(vizs, key=getKey, reverse=True)]
-
-
-    #retrieve all data from account's maps
-    logger.info('Getting all datasets data...')
     dsets = dm.all()
-    logger.info('Retrieved {} datasets'.format(len(dsets)))
+    user = self.CARTO_USER
 
-    tables = [{
-        'name': table.name, 
-        'privacy' : table.privacy,
-        'created': table.created_at, 
-        'synchronization': table.synchronization.updated_at,
-        'geometry': table.table.geometry_types
-    } for table in dsets]
-
-    #transform dss/maps list of json objects to df
-    maps_df = json_normalize(maps)
-    total_maps = len(maps)
-    tables_df = json_normalize(tables)
-    total_dsets = len(dsets)
-    tables_df.synchronization = tables_df.synchronization.fillna('None Sync')
-
-    #get sync and privacy information
-    logger.info('Getting privacy and sync information...')
-
-    #privacy
-    private = len(tables_df.loc[tables_df['privacy'] == 'PRIVATE'])
-    link = len(tables_df.loc[tables_df['privacy'] == 'LINK'])
-    public = len(tables_df.loc[tables_df['privacy'] == 'PUBLIC'])
-    logger.info('{} private tables, {} tables shared with link and {} public tables'.format(private, link, public))
-
-    #get sync and privacy information
-    logger.info('Getting privacy and sync information...')
-
-    #privacy
-    private = len(tables_df.loc[tables_df['privacy'] == 'PRIVATE'])
-    link = len(tables_df.loc[tables_df['privacy'] == 'LINK'])
-    public = len(tables_df.loc[tables_df['privacy'] == 'PUBLIC'])
-    logger.info('{} private tables, {} tables shared with link and {} public tables'.format(private, link, public))
-
-    #sync
-    try:
-        tables_df.synchronization = tables_df.synchronization.fillna('None Sync')
-        sync = len(dsets) - len(tables_df.loc[tables_df['synchronization'] == 'None Sync'])
-        logger.info('{} sync tables'.format(sync))
-    except:
-        logger.info('Sync tables unable to be retrieved.')
-        sync = 0
-        logger.info('{} tables will be returned.'.format(sync))
-
-    ### Get geometry information
-
-    #clean geometry column
-     
-    tables_df['geom_type'] = tables_df.geometry.str[0]
-
-    #get geocoded tables
-    tables_df['geocoded'] = False
-    for i in range(len(tables_df)):
-      if tables_df.geom_type[i] in ('ST_Point', 'ST_MultiPolygon', 'ST_Polygon', 'ST_MultiLineString', 'ST_LineString'):
-        tables_df['geocoded'][i] = True
-      else:
-        tables_df['geocoded'][i] = False
-
-    #non-geocoded
-    none_tbls = len(tables_df.loc[tables_df['geocoded'] == False])
-    geo = len(tables_df) - none_tbls
-    pc_none = round(none_tbls*100.00/len(tables_df),2)
-    pc_geo = 100 - pc_none
-
-    #polys
-    polys = len(tables_df.loc[tables_df['geom_type'].isin(['ST_MultiPolygon', 'Polygon'])])
-    pc_polys = round(polys*100.00/len(tables_df),2)
-
-    #lines
-    lines = len(tables_df.loc[tables_df['geom_type'].isin(['ST_LineString', 'MultiLineString'])])
-    pc_lines = round(lines*100.00/len(tables_df),2)
-
-    #points
-    points = len(tables_df.loc[tables_df['geom_type'].isin(['ST_Point'])])
-    pc_points = round(points*100.00/len(tables_df),2)
-
-    logger.info('{} non-geocoded datasets retrieved ({} %)'.format(none_tbls, pc_none)) 
-    logger.info('{} geocoded datasets ({} %)'.format(geo, pc_geo))
-    logger.info('{} point datasets ({} %)'.format(points, pc_points))
-    logger.info('{} polygon datasets ({} %)'.format(polys, pc_polys))
-    logger.info('{} lines datasets ({} %)'.format(lines, pc_lines))
+    #get maps data
     
-    ### get Data Service quota information
+    def getMaps(vizs):
 
-    #retrieve all data from account's maps
-    logger.info('Getting monthly quota information...')
-    quota = pd.DataFrame(sql.send('SELECT * FROM cdb_service_quota_info()')['rows'])
-    quota['quota_left'] = quota['monthly_quota']- quota['used_quota']
-    lds = quota[0:3] #leave DO out
-    logger.info('Retrieved {} Location Data Services'.format(len(lds)))
+        logger.info('Getting all maps data...')
 
-    #calculate % used quota
-    lds['pc_used'] = round(lds.used_quota*100.00/lds.monthly_quota,2)
+        #helper
+        def getKey(obj):
+            return obj.updated_at
 
-    #rename column names
-    lds = lds.rename(columns={"monthly_quota": "Monthly Quota", "provider": "Provider", "service": "Service", "soft_limit": "Soft Limit", "used_quota": "Used Quota", "quota_left": "Quota Left", "pc_used": "% Used Quota"})
+        maps = [{
+            'name': viz.name, 
+            'created': viz.created_at, 
+            'url': viz.url
+        } for viz in sorted(vizs, key=getKey, reverse=True)]
 
-    #set service as new index
-    lds = lds.set_index('Service')
+        maps_df = json_normalize(maps)
+        total_maps = len(maps)
+
+        #top 5 maps by date 
+        top_5_maps_date = maps_df.head(5)   
+        top_5_maps_date = top_5_maps_date.rename(columns={'created': 'Date', 'name': 'Name'})
+        top_5_maps_date = top_5_maps_date.set_index('Name')
+        
+        logger.info('Retrieved {} maps'.format(total_maps))
+
+        return maps_df, total_maps, top_5_maps_date
+
+    #get dsets data
+
+    def getDatasets(dsets):
+        logger.info('Getting all datasets data...')
+    
+        logger.info('Retrieved {} datasets'.format(len(dsets)))
+
+        tables = [{
+            'name': table.name, 
+            'privacy' : table.privacy,
+            'created': table.created_at, 
+            'synchronization': table.synchronization.updated_at,
+            'geometry': table.table.geometry_types
+        } for table in dsets]
+        
+        tables_df = json_normalize(tables)
+        total_dsets = len(dsets)
+
+        top_5_dsets_date = tables_df[['name', 'created', 'privacy', 'synchronization']]
+        top_5_dsets_date = top_5_dsets_date.sort_values(['created'], ascending=False).head()
+        top_5_dsets_date = top_5_dsets_date.rename(columns={'created': 'Date', 'name': 'Dataset', 'privacy': 'Privacy', 'synchronization': 'sync'})
+        top_5_dsets_date = top_5_dsets_date.set_index('Dataset')
+
+        logger.info('Retrieved {} datasets'.format(total_dsets))
+
+        return tables_df, total_dsets, top_5_dsets_date
+
+    def getSyncTables(tables_df):
+
+        logger.info('Getting privacy and sync information...')
+    
+        tables_df.synchronization = tables_df.synchronization.fillna('None Sync')
+
+        try:
+            tables_df.synchronization = tables_df.synchronization.fillna('None Sync')
+            sync = len(dsets) - len(tables_df.loc[tables_df['synchronization'] == 'None Sync'])
+            logger.info('{} sync tables'.format(sync))
+        except:
+            logger.info('Sync tables unable to be retrieved.')
+            sync = 0
+            logger.info('{} tables will be returned.'.format(sync))
+        
+        return sync
+
+    def getPrivacy(tables_df):
+
+        logger.info('Getting privacy information...')
+
+        private = len(tables_df.loc[tables_df['privacy'] == 'PRIVATE'])
+        link = len(tables_df.loc[tables_df['privacy'] == 'LINK'])
+        public = len(tables_df.loc[tables_df['privacy'] == 'PUBLIC'])
+        
+        logger.info('{} private tables, {} tables shared with link and {} public tables'.format(private, link, public))
+
+        return private, link, public
+
+    def getGeometry(tables_df):
+
+        logger.info('Getting geometry information...')
+        
+        tables_df['geom_type'] = tables_df.geometry.str[0]
+
+        #get geocoded tables
+        tables_df['geocoded'] = False
+        for i in range(len(tables_df)):
+            if tables_df.geom_type[i] in ('ST_Point', 'ST_MultiPolygon', 'ST_Polygon', 'ST_MultiLineString', 'ST_LineString'):
+                tables_df['geocoded'][i] = True
+            else:
+                tables_df['geocoded'][i] = False
+
+        #non-geocoded
+        none_tbls = len(tables_df.loc[tables_df['geocoded'] == False])
+        geo = len(tables_df) - none_tbls
+        pc_none = round(none_tbls*100.00/len(tables_df),2)
+        pc_geo = 100 - pc_none
+
+        #polys
+        polys = len(tables_df.loc[tables_df['geom_type'].isin(['ST_MultiPolygon', 'Polygon'])])
+        pc_polys = round(polys*100.00/len(tables_df),2)
+
+        #lines
+        lines = len(tables_df.loc[tables_df['geom_type'].isin(['ST_LineString', 'MultiLineString'])])
+        pc_lines = round(lines*100.00/len(tables_df),2)
+
+        #points
+        points = len(tables_df.loc[tables_df['geom_type'].isin(['ST_Point'])])
+        pc_points = round(points*100.00/len(tables_df),2)
+
+        return points, pc_points, lines, pc_lines, polys, pc_polys, none_tbls, pc_none, geo, pc_geo
+
+        logger.info('{} non-geocoded datasets retrieved ({} %)'.format(none_tbls, pc_none)) 
+        logger.info('{} geocoded datasets ({} %)'.format(geo, pc_geo))
+        logger.info('{} point datasets ({} %)'.format(points, pc_points))
+        logger.info('{} polygon datasets ({} %)'.format(polys, pc_polys))
+        logger.info('{} lines datasets ({} %)'.format(lines, pc_lines))
+    
+    ### get quota information
+
+    def getQuota(self.USER_QUOTA, total_size_tbls):
+
+        logger.info('Getting geocoding, routing and isolines quota information...')
+
+        quota = pd.DataFrame(sql.send('SELECT * FROM cdb_service_quota_info()')['rows'])
+        quota['quota_left'] = quota['monthly_quota']- quota['used_quota']
+        lds = quota[0:3] #leave DO out
+
+        #calculate % used quota
+        lds['pc_used'] = round(lds.used_quota*100.00/lds.monthly_quota,2)
+
+        #rename column names
+        lds = lds.rename(columns={"monthly_quota": "Monthly Quota", "provider": "Provider", "service": "Service", "soft_limit": "Soft Limit", "used_quota": "Used Quota", "quota_left": "Quota Left", "pc_used": "% Used Quota"})
+
+        #set service as new index
+        lds = lds.set_index('Service')
+
+        logger.info('Retrieved {} Location Data Services'.format(len(lds)))
+
+        logger.info('Getting storage quota information...')
+
+        real_storage = self.USER_QUOTA*2
+        used_storage = round(total_size_tbls,2)
+        pc_used = round(used_storage*100.00/real_storage,2)
+        left_storage = round(real_storage - used_storage,2)
+        pc_left = round(left_storage*100.00/real_storage,2)
+
+        credits = lds[['Monthly Quota', 'Used Quota', '% Used Quota']]
+        credits['% Quota Left'] = 100.00 - lds['% Used Quota']
+        credits.loc['storage'] = [self.USER_QUOTA, used_storage, pc_used, pc_left])
+
+        return lds, real_storage, used_storage, pc_left, pc_used, left_storage, credits
 
 
     ### get storage data
 
-    #retrieve account size
-    logger.info('Getting list of tables and sizes...')
+    def getSizes():
 
-    # check all table name of account
-    all_tables = []
+        logger.info('Getting list of tables and sizes...')
 
-    tables = sql.send(
-        "select pg_class.relname from pg_class, pg_roles, pg_namespace" +
-        " where pg_roles.oid = pg_class.relowner and " +
-        "pg_roles.rolname = current_user " +
-        "and pg_namespace.oid = pg_class.relnamespace and pg_class.relkind = 'r'")
+        # check all table name of account
+        all_tables = []
 
-    for k, v in tables.items():
-        if k == 'rows':
-            for itr in v:
-                all_tables.append(itr['relname'])
+        tables = sql.send(
+            "select pg_class.relname from pg_class, pg_roles, pg_namespace" +
+            " where pg_roles.oid = pg_class.relowner and " +
+            "pg_roles.rolname = current_user " +
+            "and pg_namespace.oid = pg_class.relnamespace and pg_class.relkind = 'r'")
 
-
-    # define array to store all the table sizes
-    arr_size = []
-
-    logger.info('Getting table sizes...')
-    # create array with values of the table sizes
-    for i in all_tables:
-        try:
-            size = sql.send("select pg_total_relation_size('" + i + "')")
-            for a, b in size.items():
-                if a == 'rows':
-                    for itr in b:
-                        size_dataset = itr['pg_total_relation_size']
-            arr_size.append(size_dataset)
-        except:
-            continue
-            
-    # define variables that have the max and min values of the previous array
-    max_val = max(arr_size)/1048576.00
-    min_val = min(arr_size)/1048576.00
-
-    # define count variable
-    sum = 0
-
-    # define list of tuples
-    tupleList = []
-
-    logger.info('Getting cartodbfied and analysis tables...')
-    # start iterating over array
-    for i in all_tables:
-        # check column names
-        checkCol = []
-
-        sum = sum + 1
-
-        # check all columns name from table
-        columns_table = "select column_name, data_type FROM information_schema.columns \
-            WHERE table_schema ='" + self.CARTO_USER + "' \
-            AND table_name ='" + i + "';"
-
-        # apply and get results from SQL API request
-        columnAndTypes = sql.send(columns_table)
-        for key, value in columnAndTypes.items():
-            if key == 'rows':
-                for itr in value:
-                    if 'cartodb_id' == itr['column_name']:
-                        checkCol.append(itr['column_name'])
-                    elif 'the_geom' == itr['column_name']:
-                        checkCol.append(itr['column_name'])
-                    elif 'the_geom_webmercator' == itr['column_name']:
-                        checkCol.append(itr['column_name'])
-        # check indexes
-        checkInd = []
-        # apply and get results from SQL API request
-        indexes = sql.send("select indexname, indexdef from pg_indexes \
-          where tablename = '" + i + "' \
-          AND schemaname = '" + self.CARTO_USER + "';")
-        for k, v in indexes.items():
+        for k, v in tables.items():
             if k == 'rows':
                 for itr in v:
-                    if 'the_geom_webmercator_idx' in itr['indexname']:
-                        checkInd.append(itr['indexname'])
-                    elif 'the_geom_idx' in itr['indexname']:
-                        checkInd.append(itr['indexname'])
-                    elif '_pkey' in itr['indexname']:
-                        checkInd.append(itr['indexname'])
+                    all_tables.append(itr['relname'])
 
-        # if indexes and column names exists -> table cartodbified
-        if len(checkInd) >= 3 and len(checkCol) >= 3:
-            cartodbfied = 'YES'
+        # define array to store all the table sizes
+        arr_size = []
+
+        logger.info('Getting table sizes...')
+        # create array with values of the table sizes
+        for i in all_tables:
+            try:
+                size = sql.send("select pg_total_relation_size('" + i + "')")
+                for a, b in size.items():
+                    if a == 'rows':
+                        for itr in b:
+                            size_dataset = itr['pg_total_relation_size']
+                arr_size.append(size_dataset)
+            except:
+                continue
+                
+        # define variables that have the max and min values of the previous array
+        max_val = max(arr_size)/1048576.00
+        min_val = min(arr_size)/1048576.00
+
+        # define count variable
+        sum = 0
+
+        # define list of tuples
+        tupleList = []
+
+        logger.info('Getting cartodbfied and analysis tables...')
+        # start iterating over array
+        for i in all_tables:
+            # check column names
+            checkCol = []
+
+            sum = sum + 1
+
+            # check all columns name from table
+            columns_table = "select column_name, data_type FROM information_schema.columns \
+                WHERE table_schema ='" + self.CARTO_USER + "' \
+                AND table_name ='" + i + "';"
+
+            # apply and get results from SQL API request
+            columnAndTypes = sql.send(columns_table)
+
+            for key, value in columnAndTypes.items():
+                if key == 'rows':
+                    for itr in value:
+                        if 'cartodb_id' == itr['column_name']:
+                            checkCol.append(itr['column_name'])
+                        elif 'the_geom' == itr['column_name']:
+                            checkCol.append(itr['column_name'])
+                        elif 'the_geom_webmercator' == itr['column_name']:
+                            checkCol.append(itr['column_name'])
+
+            # check indexes
+            checkInd = []
+
+            # apply and get results from SQL API request
+            indexes = sql.send(
+                "select indexname, indexdef from pg_indexes \
+                where tablename = '" + i + "' \
+                AND schemaname = '" + self.CARTO_USER + "';")
+
+            for k, v in indexes.items():
+                if k == 'rows':
+                    for itr in v:
+                        if 'the_geom_webmercator_idx' in itr['indexname']:
+                            checkInd.append(itr['indexname'])
+                        elif 'the_geom_idx' in itr['indexname']:
+                            checkInd.append(itr['indexname'])
+                        elif '_pkey' in itr['indexname']:
+                            checkInd.append(itr['indexname'])
+
+            # if indexes and column names exists -> table cartodbified
+            if len(checkInd) >= 3 and len(checkCol) >= 3:
+                cartodbfied = 'YES'
+            else:
+                cartodbfied = 'NO'
+
+            # create graphs according on the table size
+            try:
+                table_size = sql.send("select pg_total_relation_size('" + i + "')")
+                for a, b in table_size.items():
+                    if a == 'rows':
+                        for itr in b:
+                            table_size = itr['pg_total_relation_size']
+
+                # bytes to MB
+                val = table_size/1048576.00
+                
+                # Normalize values
+                norm = ((val-min_val)/(max_val-min_val))*100.00
+
+                tupleList.append({
+                    'name': i, 
+                    'size': val, 
+                    'norm_size': norm,
+                    'cartodbfied': cartodbfied})
+
+            except:
+                logger.info('Error at: ' + str(i))
+                
+        logger.info('Retrieved {} tables with size information.'.format(len(tupleList)))
+
+        return tupleList
+
+    def getTableSizes(tupleList):
+
+        logger.info('Processing cartodbfied and analysis tables...')
+
+        if len(tupleList) > 0:
+            #convert tupleList to df
+            tupleList_df = json_normalize(tupleList)
+
+            #order by norm size value
+            tbls_size = tupleList_df.sort_values(['norm_size'], ascending=False)
+
+            #get sum of sizes and norm sizes
+            total_size = round(tbls_size['size'].sum(),2)
+
+            logger.info('Retrieved {} tables with total size of {} MB'.format(len(tupleList_df), total_size))
+
+            #split between tables and analysis tables
+            cdb_tabls = tbls_size.loc[tbls_size['cartodbfied'] == 'YES']
+            analysis_tbls = tbls_size.loc[tbls_size['cartodbfied'] == 'NO']
+            logger.info('Retrieved {} cartodbfied tables.'.format(len(analysis_tbls)))
+            logger.info('Retrieved {} analysis tables.'.format(len(cdb_tabls)))
+        else: 
+            total_size = 0
+            tbls_size = 0
+            cdb_tabls = pd.DataFrame(columns=['name', 'size'])
+            analysis_tbls = pd.DataFrame(columns=['name', 'size'])
+
+        top_5_dsets_size = cdb_tabls.sort_values(['size'], ascending=False).head()
+        top_5_dsets_size = top_5_dsets_size[['name', 'size']]
+        top_5_dsets_size = top_5_dsets_size.rename(columns={'size': 'Size', 'name': 'Dataset'})
+        top_5_dsets_size = top_5_dsets_size.set_index('Dataset')
+
+        if cdb_tabls['size'].empty:
+            total_size_tbls = 0
         else:
-            cartodbfied = 'NO'
+            total_size_tbls = round(cdb_tabls['size'].sum(),2)
+        
+        return total_size, tbls_size, cdb_tabls, analysis_tbls, top_5_dsets_size, total_size_tbls
 
-        # create graphs according on the table size
-        try:
-            table_size = sql.send("select pg_total_relation_size('" + i + "')")
-            for a, b in table_size.items():
-                if a == 'rows':
-                    for itr in b:
-                        table_size = itr['pg_total_relation_size']
+    def getAnalysisNames(analysis_tbls):
 
-            # bytes to MB
-            val = table_size/1048576.00
-            
-            # Normalize values
-            norm = ((val-min_val)/(max_val-min_val))*100.00
+        logger.info('Replacing analysis id with proper names...')
 
-            tupleList.append({
-                'name': i, 
-                'size': val, 
-                'norm_size': norm,
-                'cartodbfied': cartodbfied})
+        if len(analysis_tbls) > 0:
+            logger.info('Replacing analysis table ids with the right analysis name.')  
+            #get unique analyis id
+            analysis_tbls['id'] = analysis_tbls['name'].str.split("_", n = 3, expand = True)[1] 
 
-        except:
-            logger.info('Error at: ' + str(i))
-            
-    logger.info('Retrieved {} tables with size information.'.format(len(tupleList)))
+            #convert equivalences object to a df
+            equivalences = [{"type": "aggregate-intersection", "id": "b194a8f896"},{ "type": "bounding-box", "id": "5f80bdff9d"},{ "type": "bounding-circle", "id": "b7636131b5"},{ "type": "buffer", "id": "2f13a3dbd7"},{ "type": "centroid", "id": "ae64186757"},{ "type": "closest", "id": "4bd65e58e4"},{ "type": "concave-hull", "id": "259cf96ece"},{ "type": "contour", "id": "779051ec8e"},{ "type": "convex-hull", "id": "05234e7c2a"},{ "type": "data-observatory-measure", "id": "a08f3b6124"},{ "type": "data-observatory-multiple-measures", "id": "cd60938c7b"},{ "type": "deprecated-sql-function", "id": "e85ed857c2"},{ "type": "filter-by-node-column", "id": "83d60eb9fa"},{ "type": "filter-category", "id": "440d2c1487"},{ "type": "filter-grouped-rank", "id": "f15fa0b618"},{ "type": "filter-range", "id": "942b6fec82"},{ "type": "filter-rank", "id": "43155891da"},{ "type": "georeference-admin-region", "id": "a5bdb274e8"},{ "type": "georeference-city", "id": "d5b2dd1672"},{ "type": "georeference-country", "id": "792d8938e3"},{ "type": "georeference-ip-address", "id": "d5b2274cdf"},{ "type": "georeference-long-lat", "id": "0623244fc4"},{ "type": "georeference-postal-code", "id": "1f7c6f9f43"},{ "type": "georeference-street-address", "id": "1ea6dec9f3"},{ "type": "gravity", "id": "93ab69856c"},{ "type": "intersection", "id": "971639c870"},{ "type": "kmeans", "id": "3c835a874c"},{ "type": "line-sequential", "id": "9fd29bd5c0"},{ "type": "line-source-to-target", "id": "9e88a1147e"},{ "type": "line-to-column", "id": "be2ff62ce9"},{ "type": "line-to-single-point", "id": "eca516b80b"},{ "type": "link-by-line", "id": "49ca809a90"},{ "type": "merge", "id": "c38cb847a0"},{ "type": "moran", "id": "91837cbb3c"},{ "type": "point-in-polygon", "id": "2e94d3858c"},{ "type": "population-in-area", "id": "d52251dc01"},{ "type": "routing-sequential", "id": "a627e132c2"},{ "type": "routing-to-layer-all-to-all", "id": "b70cf71482"},{ "type": "routing-to-single-point", "id": "2923729eb9"},{ "type": "sampling", "id": "7530d60ffc"},{ "type": "source", "id": "fd83c76763"},{ "type": "spatial-markov-trend", "id": "9c3b798f46"},{ "type": "trade-area", "id": "112d4fc091"},{ "type": "weighted-centroid", "id": "1d85314d7a"}]
+            equivalences_df = json_normalize(equivalences)
 
-    if len(tupleList) > 0:
-      #convert tupleList to df
-      tupleList_df = json_normalize(tupleList)
+            #join equivalences to analysis table
+            analysis_tbls_eq = pd.merge(equivalences_df, analysis_tbls, on='id')
+            total_analysis = len(analysis_tbls_eq)
+            total_size_analysis = round(analysis_tbls_eq['size'].sum(),2)
 
-      #order by norm size value
-      tbls_size = tupleList_df.sort_values(['norm_size'], ascending=False)
+            #get analysis summuary
+            analysis_types = analysis_tbls_eq['type'].value_counts()
+            analysis_df = analysis_types.to_frame()
+            analysis_df = analysis_df.rename(columns={'type': 'Analysis Count'})
+        
+        else:
+            total_analysis = 0
+            total_size_analysis = 0
+            analysis_df = pd.DataFrame(columns=['Analysis Count'])
 
-      #get sum of sizes and norm sizes
-      total_size = round(tbls_size['size'].sum(),2)
+        logger.info('{} analysis names replaced '.format(total_analysis))
 
-      logger.info('Retrieved {} tables with total size of {} MB'.format(len(tupleList_df), total_size))
-      
-      #split between tables and analysis tables
-      cdb_tabls = tbls_size.loc[tbls_size['cartodbfied'] == 'YES']
-      analysis_tbls = tbls_size.loc[tbls_size['cartodbfied'] == 'NO']
-      logger.info('Retrieved {} cartodbfied tables.'.format(len(analysis_tbls)))
-      logger.info('Retrieved {} analysis tables.'.format(len(cdb_tabls)))
-    else: 
-      total_size = 0
-      tbls_size = 0
-      cdb_tabls = pd.DataFrame(columns=['name', 'size'])
-
-    if len(analysis_tbls) > 0:
-      logger.info('Replacing analysis table ids with the right analysis name.')  
-      #get unique analyis id
-      analysis_tbls['id'] = analysis_tbls['name'].str.split("_", n = 3, expand = True)[1] 
-
-      #convert equivalences object to a df
-      equivalences = [{"type": "aggregate-intersection", "id": "b194a8f896"},{ "type": "bounding-box", "id": "5f80bdff9d"},{ "type": "bounding-circle", "id": "b7636131b5"},{ "type": "buffer", "id": "2f13a3dbd7"},{ "type": "centroid", "id": "ae64186757"},{ "type": "closest", "id": "4bd65e58e4"},{ "type": "concave-hull", "id": "259cf96ece"},{ "type": "contour", "id": "779051ec8e"},{ "type": "convex-hull", "id": "05234e7c2a"},{ "type": "data-observatory-measure", "id": "a08f3b6124"},{ "type": "data-observatory-multiple-measures", "id": "cd60938c7b"},{ "type": "deprecated-sql-function", "id": "e85ed857c2"},{ "type": "filter-by-node-column", "id": "83d60eb9fa"},{ "type": "filter-category", "id": "440d2c1487"},{ "type": "filter-grouped-rank", "id": "f15fa0b618"},{ "type": "filter-range", "id": "942b6fec82"},{ "type": "filter-rank", "id": "43155891da"},{ "type": "georeference-admin-region", "id": "a5bdb274e8"},{ "type": "georeference-city", "id": "d5b2dd1672"},{ "type": "georeference-country", "id": "792d8938e3"},{ "type": "georeference-ip-address", "id": "d5b2274cdf"},{ "type": "georeference-long-lat", "id": "0623244fc4"},{ "type": "georeference-postal-code", "id": "1f7c6f9f43"},{ "type": "georeference-street-address", "id": "1ea6dec9f3"},{ "type": "gravity", "id": "93ab69856c"},{ "type": "intersection", "id": "971639c870"},{ "type": "kmeans", "id": "3c835a874c"},{ "type": "line-sequential", "id": "9fd29bd5c0"},{ "type": "line-source-to-target", "id": "9e88a1147e"},{ "type": "line-to-column", "id": "be2ff62ce9"},{ "type": "line-to-single-point", "id": "eca516b80b"},{ "type": "link-by-line", "id": "49ca809a90"},{ "type": "merge", "id": "c38cb847a0"},{ "type": "moran", "id": "91837cbb3c"},{ "type": "point-in-polygon", "id": "2e94d3858c"},{ "type": "population-in-area", "id": "d52251dc01"},{ "type": "routing-sequential", "id": "a627e132c2"},{ "type": "routing-to-layer-all-to-all", "id": "b70cf71482"},{ "type": "routing-to-single-point", "id": "2923729eb9"},{ "type": "sampling", "id": "7530d60ffc"},{ "type": "source", "id": "fd83c76763"},{ "type": "spatial-markov-trend", "id": "9c3b798f46"},{ "type": "trade-area", "id": "112d4fc091"},{ "type": "weighted-centroid", "id": "1d85314d7a"}]
-      equivalences_df = json_normalize(equivalences)
-
-      #join equivalences to analysis table
-      analysis_tbls_eq = pd.merge(equivalences_df, analysis_tbls, on='id')
-      total_analysis = len(analysis_tbls_eq)
-      total_size_analysis = round(analysis_tbls_eq['size'].sum(),2)
-
-      #get analysis summuary
-      analysis_types = analysis_tbls_eq['type'].value_counts()
-      analysis_df = analysis_types.to_frame()
-      analysis_df = analysis_df.rename(columns={'type': 'Analysis Count'})
-      
-    else:
-      total_analysis = 0
-      total_size_analysis = 0
-      analysis_df = pd.DataFrame(columns=['Analysis Count'])
+        return analysis_df, total_analysis, total_size_analysis
 
     ### prepare template and report variables
 
     # prepare variables
     logger.info('Preparing all variables...')
 
-    #user
-    user = self.CARTO_USER
-
     #date
-    now = dt.datetime.now()
-    today = now.strftime("%Y-%m-%d %H:%M")
+    def getDate():
+        now = dt.datetime.now()
+        today = now.strftime("%Y-%m-%d %H:%M")
+        return today
 
-    ## maps metrics
-    total_maps = len(maps_df)
-    top_5_maps_date = maps_df.sort_values(['created'], ascending=False).head()
-    top_5_maps_date = top_5_maps_date.rename(columns={'created': 'Date', 'name': 'Name'})
-    top_5_maps_date = top_5_maps_date.set_index('Name')
+    def plotQuota():
+        return 'Hola'
 
-
-    ## datasets metrics
-    total_dsets = len(tables_df)
-    top_5_dsets_date = tables_df[['name', 'created', 'privacy', 'synchronization']]
-    top_5_dsets_date = top_5_dsets_date.sort_values(['created'], ascending=False).head()
-    top_5_dsets_date = top_5_dsets_date.rename(columns={'created': 'Date', 'name': 'Dataset', 'privacy': 'Privacy', 'synchronization': 'sync'})
-    top_5_dsets_date = top_5_dsets_date.set_index('Dataset')
-
-    top_5_dsets_size = cdb_tabls.sort_values(['size'], ascending=False).head()
-    top_5_dsets_size = top_5_dsets_size[['name', 'size']]
-    top_5_dsets_size = top_5_dsets_size.rename(columns={'size': 'Size', 'name': 'Dataset'})
-    top_5_dsets_size = top_5_dsets_size.set_index('Dataset')
-
-    if cdb_tabls['size'].empty:
-      total_size_tbls = 0
-    else:
-      total_size_tbls = round(cdb_tabls['size'].sum(),2)
-
-    ## quota
-    real_storage = self.USER_QUOTA*2
-    used_storage = round(total_size_tbls,2)
-    pc_used = round(used_storage*100.00/real_storage,2)
-    left_storage = round(real_storage - used_storage,2)
-    pc_left = round(left_storage*100.00/real_storage,2)
-
-    credits = lds[['Monthly Quota', 'Used Quota', '% Used Quota']]
-    credits['% Quota Left'] = 100.00 - lds['% Used Quota']
-    credits.loc['storage'] = [self.USER_QUOTA, used_storage, pc_used, pc_left]
+    def plotAnalysis():
+        return 'Hola'
 
     ### create data visualizations
     logger.info('Building data visualizations...')

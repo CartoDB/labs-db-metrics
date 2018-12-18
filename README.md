@@ -92,3 +92,5 @@ Known Issues
 - [ ] Use conditionals within the template.
 - [x] Add debug loggins to bet feedback, especially when getting all tables and analysis.
 - [x] Include logging as a proper library.
+- [ ] Add functions.
+- [ ] Debug get table sizes section.
