@@ -24,41 +24,44 @@ from carto.maps import NamedMapManager, NamedMap
 
 class Reporter(object):
 
-  def __init__(self, CARTO_USER, CARTO_API_URL, CARTO_ORG, CARTO_API_KEY, USER_QUOTA):
-    self.CARTO_USER = CARTO_USER
-    self.CARTO_API_URL = CARTO_API_URL
-    self.CARTO_ORG = CARTO_ORG
-    self.CARTO_API_KEY = CARTO_API_KEY
-    self.USER_QUOTA = USER_QUOTA
+    def __init__(self, CARTO_USER, CARTO_API_URL, CARTO_ORG, CARTO_API_KEY, USER_QUOTA):
+        self.CARTO_USER = CARTO_USER
+        self.CARTO_ORG = CARTO_ORG
+        self.USER_QUOTA = USER_QUOTA
 
-  def report(self):
+        ### CARTO clients
+        auth_client = APIKeyAuthClient(CARTO_API_URL, CARTO_API_KEY, CARTO_ORG)
+        self.sql = SQLClient(auth_client)
+        self.vm = VisualizationManager(auth_client)
+        self.dm = DatasetManager(auth_client)
 
-    ### logger, variables and CARTO clients
-    logger = logging.getLogger('carto_report')
-    logger.addHandler(logging.NullHandler())
+        ### logger, variables and CARTO clients
+        self.logger = logging.getLogger('carto_report')
+        self.logger.addHandler(logging.NullHandler())
 
-    ### CARTO clients
-    auth_client = APIKeyAuthClient(self.CARTO_API_URL, self.CARTO_API_KEY, self.CARTO_ORG)
-    sql = SQLClient(auth_client)
-    vm = VisualizationManager(auth_client)
-    dm = DatasetManager(auth_client)
+    def report(self):
+        '''
+        Main method to get the full report
+        '''
+        vizs = self.vm.all()
+        dsets = self.dm.all()
+        user = self.CARTO_USER
+        quota = self.USER_QUOTA
 
-    vizs = vm.all()
-    dsets = dm.all()
-    user = self.CARTO_USER
-    quota = self.USER_QUOTA
+        (maps_df, total_maps, top_5_maps_date) = self.getMaps(vizs)
+
 
     ### get date
-    def getDate():
+    def getDate(self):
         now = dt.datetime.now()
         today = now.strftime("%Y-%m-%d %H:%M")
         return today
 
     ### get maps data
-    
-    def getMaps(vizs):
 
-        logger.info('Getting all maps data...')
+    def getMaps(self, vizs):
+
+        self.logger.info('Getting all maps data...')
 
         #helper
         def getKey(obj):
@@ -78,16 +81,16 @@ class Reporter(object):
         top_5_maps_date = top_5_maps_date.rename(columns={'created': 'Date', 'name': 'Name'})
         top_5_maps_date = top_5_maps_date.set_index('Name')
         
-        logger.info('Retrieved {} maps'.format(total_maps))
+        self.logger.info('Retrieved {} maps'.format(total_maps))
 
-        return maps_df, total_maps, top_5_maps_date
+        return (maps_df, total_maps, top_5_maps_date)
 
     ### get dsets data
 
-    def getDatasets(dsets):
-        logger.info('Getting all datasets data...')
-    
-        logger.info('Retrieved {} datasets'.format(len(dsets)))
+    def getDatasets(self, dsets):
+        self.logger.info('Getting all datasets data...')
+
+        self.logger.info('Retrieved {} datasets'.format(len(dsets)))
 
         tables = [{
             'name': table.name, 
@@ -105,46 +108,44 @@ class Reporter(object):
         top_5_dsets_date = top_5_dsets_date.rename(columns={'created': 'Date', 'name': 'Dataset', 'privacy': 'Privacy', 'synchronization': 'sync'})
         top_5_dsets_date = top_5_dsets_date.set_index('Dataset')
 
-        logger.info('Retrieved {} datasets'.format(total_dsets))
+        self.logger.info('Retrieved {} datasets'.format(total_dsets))
 
         return tables_df, total_dsets, top_5_dsets_date
 
-    def getSyncTables(tables_df):
+    def getSyncTables(self, tables_df):
 
-        logger.info('Getting privacy and sync information...')
-    
-        tables_df.synchronization = tables_df.synchronization.fillna('None Sync')
+        self.logger.info('Getting privacy and sync information...')
 
         try:
             tables_df.synchronization = tables_df.synchronization.fillna('None Sync')
             sync = len(dsets) - len(tables_df.loc[tables_df['synchronization'] == 'None Sync'])
-            logger.info('{} sync tables'.format(sync))
+            self.logger.info('{} sync tables'.format(sync))
         except:
-            logger.info('Sync tables unable to be retrieved.')
+            self.logger.info('Sync tables unable to be retrieved.')
             sync = 0
-            logger.info('{} tables will be returned.'.format(sync))
+            self.logger.info('{} tables will be returned.'.format(sync))
         
         return sync
 
     ### get datasets privacy settings
 
-    def getPrivacy(tables_df):
+    def getPrivacy(self, tables_df):
 
-        logger.info('Getting privacy information...')
+        self.logger.info('Getting privacy information...')
 
         private = len(tables_df.loc[tables_df['privacy'] == 'PRIVATE'])
         link = len(tables_df.loc[tables_df['privacy'] == 'LINK'])
         public = len(tables_df.loc[tables_df['privacy'] == 'PUBLIC'])
         
-        logger.info('{} private tables, {} tables shared with link and {} public tables'.format(private, link, public))
+        self.logger.info('{} private tables, {} tables shared with link and {} public tables'.format(private, link, public))
 
-        return private, link, public
+        return (private, link, public)
 
     ### get datasets geometry
 
-    def getGeometry(tables_df):
+    def getGeometry(self, tables_df):
 
-        logger.info('Getting geometry information...')
+        self.logger.info('Getting geometry information...')
         
         tables_df['geom_type'] = tables_df.geometry.str[0]
 
@@ -174,21 +175,21 @@ class Reporter(object):
         points = len(tables_df.loc[tables_df['geom_type'].isin(['ST_Point'])])
         pc_points = round(points*100.00/len(tables_df),2)
 
-        logger.info('{} non-geocoded datasets retrieved ({} %)'.format(none_tbls, pc_none)) 
-        logger.info('{} geocoded datasets ({} %)'.format(geo, pc_geo))
-        logger.info('{} point datasets ({} %)'.format(points, pc_points))
-        logger.info('{} polygon datasets ({} %)'.format(polys, pc_polys))
-        logger.info('{} lines datasets ({} %)'.format(lines, pc_lines))
+        self.logger.info('{} non-geocoded datasets retrieved ({} %)'.format(none_tbls, pc_none)) 
+        self.logger.info('{} geocoded datasets ({} %)'.format(geo, pc_geo))
+        self.logger.info('{} point datasets ({} %)'.format(points, pc_points))
+        self.logger.info('{} polygon datasets ({} %)'.format(polys, pc_polys))
+        self.logger.info('{} lines datasets ({} %)'.format(lines, pc_lines))
 
-        return points, pc_points, lines, pc_lines, polys, pc_polys, none_tbls, pc_none, geo, pc_geo
-    
+        return (points, pc_points, lines, pc_lines, polys, pc_polys, none_tbls, pc_none, geo, pc_geo)
+
     ### get quota information
 
-    def getQuota(quota, total_size_tbls):
+    def getQuota(self, quota, total_size_tbls):
 
-        logger.info('Getting geocoding, routing and isolines quota information...')
+        self.logger.info('Getting geocoding, routing and isolines quota information...')
 
-        quota = pd.DataFrame(sql.send('SELECT * FROM cdb_service_quota_info()')['rows'])
+        quota = pd.DataFrame(self.sql.send('SELECT * FROM cdb_service_quota_info()')['rows'])
         quota['quota_left'] = quota['monthly_quota']- quota['used_quota']
         lds = quota[0:3] #leave DO out
 
@@ -201,9 +202,9 @@ class Reporter(object):
         #set service as new index
         lds = lds.set_index('Service')
 
-        logger.info('Retrieved {} Location Data Services'.format(len(lds)))
+        self.logger.info('Retrieved {} Location Data Services'.format(len(lds)))
 
-        logger.info('Getting storage quota information...')
+        self.logger.info('Getting storage quota information...')
 
         real_storage = quota*2
         used_storage = round(total_size_tbls,2)
@@ -219,14 +220,14 @@ class Reporter(object):
 
     ### get storage data
 
-    def getSizes():
+    def getSizes(self):
 
-        logger.info('Getting list of tables and sizes...')
+        self.logger.info('Getting list of tables and sizes...')
 
         # check all table name of account
         all_tables = []
 
-        tables = sql.send(
+        tables = self.sql.send(
             "select pg_class.relname from pg_class, pg_roles, pg_namespace" +
             " where pg_roles.oid = pg_class.relowner and " +
             "pg_roles.rolname = current_user " +
@@ -240,11 +241,11 @@ class Reporter(object):
         # define array to store all the table sizes
         arr_size = []
 
-        logger.info('Getting table sizes...')
+        self.logger.info('Getting table sizes...')
         # create array with values of the table sizes
         for i in all_tables:
             try:
-                size = sql.send("select pg_total_relation_size('" + i + "')")
+                size = self.sql.send("select pg_total_relation_size('" + i + "')")
                 for a, b in size.items():
                     if a == 'rows':
                         for itr in b:
@@ -263,7 +264,7 @@ class Reporter(object):
         # define list of tuples
         tupleList = []
 
-        logger.info('Getting cartodbfied and analysis tables...')
+        self.logger.info('Getting cartodbfied and analysis tables...')
         # start iterating over array
         for i in all_tables:
             # check column names
@@ -277,7 +278,7 @@ class Reporter(object):
                 AND table_name ='" + i + "';"
 
             # apply and get results from SQL API request
-            columnAndTypes = sql.send(columns_table)
+            columnAndTypes = self.sql.send(columns_table)
 
             for key, value in columnAndTypes.items():
                 if key == 'rows':
@@ -293,7 +294,7 @@ class Reporter(object):
             checkInd = []
 
             # apply and get results from SQL API request
-            indexes = sql.send(
+            indexes = self.sql.send(
                 "select indexname, indexdef from pg_indexes \
                 where tablename = '" + i + "' \
                 AND schemaname = '" + self.CARTO_USER + "';")
@@ -316,7 +317,7 @@ class Reporter(object):
 
             # create graphs according on the table size
             try:
-                table_size = sql.send("select pg_total_relation_size('" + i + "')")
+                table_size = self.sql.send("select pg_total_relation_size('" + i + "')")
                 for a, b in table_size.items():
                     if a == 'rows':
                         for itr in b:
@@ -335,17 +336,17 @@ class Reporter(object):
                     'cartodbfied': cartodbfied})
 
             except:
-                logger.info('Error at: ' + str(i))
+                self.logger.info('Error at: ' + str(i))
                 
-        logger.info('Retrieved {} tables with size information.'.format(len(tupleList)))
+        self.logger.info('Retrieved {} tables with size information.'.format(len(tupleList)))
 
         return tupleList
 
     ### get tables sizes
 
-    def getTableSizes(tupleList):
+    def getTableSizes(self,tupleList):
 
-        logger.info('Processing cartodbfied and analysis tables...')
+        self.logger.info('Processing cartodbfied and analysis tables...')
 
         if len(tupleList) > 0:
             #convert tupleList to df
@@ -357,13 +358,13 @@ class Reporter(object):
             #get sum of sizes and norm sizes
             total_size = round(tbls_size['size'].sum(),2)
 
-            logger.info('Retrieved {} tables with total size of {} MB'.format(len(tupleList_df), total_size))
+            self.logger.info('Retrieved {} tables with total size of {} MB'.format(len(tupleList_df), total_size))
 
             #split between tables and analysis tables
             cdb_tabls = tbls_size.loc[tbls_size['cartodbfied'] == 'YES']
             analysis_tbls = tbls_size.loc[tbls_size['cartodbfied'] == 'NO']
-            logger.info('Retrieved {} cartodbfied tables.'.format(len(analysis_tbls)))
-            logger.info('Retrieved {} analysis tables.'.format(len(cdb_tabls)))
+            self.logger.info('Retrieved {} cartodbfied tables.'.format(len(analysis_tbls)))
+            self.logger.info('Retrieved {} analysis tables.'.format(len(cdb_tabls)))
         else: 
             total_size = 0
             tbls_size = 0
@@ -384,12 +385,12 @@ class Reporter(object):
 
     ### get analysis names table
 
-    def getAnalysisNames(analysis_tbls):
+    def getAnalysisNames(self, analysis_tbls):
 
-        logger.info('Replacing analysis id with proper names...')
+        self.logger.info('Replacing analysis id with proper names...')
 
         if len(analysis_tbls) > 0:
-            logger.info('Replacing analysis table ids with the right analysis name.')  
+            self.logger.info('Replacing analysis table ids with the right analysis name.')  
             #get unique analyis id
             analysis_tbls['id'] = analysis_tbls['name'].str.split("_", n = 3, expand = True)[1] 
 
@@ -412,17 +413,17 @@ class Reporter(object):
             total_size_analysis = 0
             analysis_df = pd.DataFrame(columns=['Analysis Count'])
 
-        logger.info('{} analysis names replaced '.format(total_analysis))
+        self.logger.info('{} analysis names replaced '.format(total_analysis))
 
         return analysis_df, total_analysis, total_size_analysis
 
     ### plot LDS figure
 
-    def plotQuota(credits):
+    def plotQuota(self, credits):
 
-        logger.info('Plotting LDS figure...')
+        self.logger.info('Plotting LDS figure...')
 
-         # plot properties
+            # plot properties
         r = list(range(len(credits)))
         barWidth = 0.85
         names = credits.index.tolist()
@@ -452,9 +453,9 @@ class Reporter(object):
 
     ### plot analysis figure
 
-    def plotAnalysis(analysis_df):
+    def plotAnalysis(self, analysis_df):
 
-        logger.info('Plotting analysis figure...')
+        self.logger.info('Plotting analysis figure...')
 
         # plot properties
         analysis_names = analysis_df.index.tolist()
@@ -481,7 +482,7 @@ class Reporter(object):
 
     ### create a HTML template
 
-    def generateTemplate(        
+    def generateTemplate(self,
         user, today, 
         lds, real_storage, used_storage, pc_used, left_storage, pc_left, 
         total_maps, top_5_maps_date,
@@ -492,7 +493,7 @@ class Reporter(object):
         fig_analysis,
         fig_lds):
 
-        logger.info('Generating HTML template...')
+        self.logger.info('Generating HTML template...')
 
         template = """
             <!DOCTYPE html>
@@ -641,7 +642,7 @@ class Reporter(object):
         """
         rtemplate = Environment(loader=BaseLoader()).from_string(template)
 
-        logger.info('Rendering HTML report...')
+        self.logger.info('Rendering HTML report...')
 
         return rtemplate.render({
 
