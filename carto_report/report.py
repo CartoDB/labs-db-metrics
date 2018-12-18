@@ -46,8 +46,15 @@ class Reporter(object):
     vizs = vm.all()
     dsets = dm.all()
     user = self.CARTO_USER
+    quota = self.USER_QUOTA
 
-    #get maps data
+    ### get date
+    def getDate():
+        now = dt.datetime.now()
+        today = now.strftime("%Y-%m-%d %H:%M")
+        return today
+
+    ### get maps data
     
     def getMaps(vizs):
 
@@ -75,7 +82,7 @@ class Reporter(object):
 
         return maps_df, total_maps, top_5_maps_date
 
-    #get dsets data
+    ### get dsets data
 
     def getDatasets(dsets):
         logger.info('Getting all datasets data...')
@@ -119,6 +126,8 @@ class Reporter(object):
         
         return sync
 
+    ### get datasets privacy settings
+
     def getPrivacy(tables_df):
 
         logger.info('Getting privacy information...')
@@ -130,6 +139,8 @@ class Reporter(object):
         logger.info('{} private tables, {} tables shared with link and {} public tables'.format(private, link, public))
 
         return private, link, public
+
+    ### get datasets geometry
 
     def getGeometry(tables_df):
 
@@ -163,17 +174,17 @@ class Reporter(object):
         points = len(tables_df.loc[tables_df['geom_type'].isin(['ST_Point'])])
         pc_points = round(points*100.00/len(tables_df),2)
 
-        return points, pc_points, lines, pc_lines, polys, pc_polys, none_tbls, pc_none, geo, pc_geo
-
         logger.info('{} non-geocoded datasets retrieved ({} %)'.format(none_tbls, pc_none)) 
         logger.info('{} geocoded datasets ({} %)'.format(geo, pc_geo))
         logger.info('{} point datasets ({} %)'.format(points, pc_points))
         logger.info('{} polygon datasets ({} %)'.format(polys, pc_polys))
         logger.info('{} lines datasets ({} %)'.format(lines, pc_lines))
+
+        return points, pc_points, lines, pc_lines, polys, pc_polys, none_tbls, pc_none, geo, pc_geo
     
     ### get quota information
 
-    def getQuota(self.USER_QUOTA, total_size_tbls):
+    def getQuota(quota, total_size_tbls):
 
         logger.info('Getting geocoding, routing and isolines quota information...')
 
@@ -194,7 +205,7 @@ class Reporter(object):
 
         logger.info('Getting storage quota information...')
 
-        real_storage = self.USER_QUOTA*2
+        real_storage = quota*2
         used_storage = round(total_size_tbls,2)
         pc_used = round(used_storage*100.00/real_storage,2)
         left_storage = round(real_storage - used_storage,2)
@@ -202,10 +213,9 @@ class Reporter(object):
 
         credits = lds[['Monthly Quota', 'Used Quota', '% Used Quota']]
         credits['% Quota Left'] = 100.00 - lds['% Used Quota']
-        credits.loc['storage'] = [self.USER_QUOTA, used_storage, pc_used, pc_left])
+        credits.loc['storage'] = [quota, used_storage, pc_used, pc_left]
 
         return lds, real_storage, used_storage, pc_left, pc_used, left_storage, credits
-
 
     ### get storage data
 
@@ -331,6 +341,8 @@ class Reporter(object):
 
         return tupleList
 
+    ### get tables sizes
+
     def getTableSizes(tupleList):
 
         logger.info('Processing cartodbfied and analysis tables...')
@@ -370,6 +382,8 @@ class Reporter(object):
         
         return total_size, tbls_size, cdb_tabls, analysis_tbls, top_5_dsets_size, total_size_tbls
 
+    ### get analysis names table
+
     def getAnalysisNames(analysis_tbls):
 
         logger.info('Replacing analysis id with proper names...')
@@ -402,279 +416,274 @@ class Reporter(object):
 
         return analysis_df, total_analysis, total_size_analysis
 
-    ### prepare template and report variables
+    ### plot LDS figure
 
-    # prepare variables
-    logger.info('Preparing all variables...')
+    def plotQuota(credits):
 
-    #date
-    def getDate():
-        now = dt.datetime.now()
-        today = now.strftime("%Y-%m-%d %H:%M")
-        return today
+        logger.info('Plotting LDS figure...')
 
-    def plotQuota():
-        return 'Hola'
+         # plot properties
+        r = list(range(len(credits)))
+        barWidth = 0.85
+        names = credits.index.tolist()
 
-    def plotAnalysis():
-        return 'Hola'
+        # create a plot
+        fig_lds, ax_lds = plt.subplots()
 
-    ### create data visualizations
-    logger.info('Building data visualizations...')
+        # create used quota / red bars
+        ax_lds.bar(r, credits['% Quota Left'], bottom=credits['% Used Quota'], color='#009392', edgecolor='white', width=barWidth, label='% Quota Left')
+        # create quota left / red bars
+        ax_lds.bar(r, credits['% Used Quota'], color='#cf597e', edgecolor='white', width=barWidth, label='% Used Quota')
 
-    # vertical bar chart for % quota
+        # customize ticks and labels
+        ax_lds.set_xticks(r)
+        ax_lds.set_xticklabels(names)
+        ax_lds.set_xlabel("Location Data Service")
+        ax_lds.set_ylabel("%")
 
-    # plot properties
-    r = list(range(len(credits)))
-    barWidth = 0.85
-    names = credits.index.tolist()
+        # Add a legend
+        handles, labels = ax_lds.get_legend_handles_labels()
+        ax_lds.legend(handles, labels, loc='upper left', bbox_to_anchor=(0,1,1,0))
+        
+        # tight plot
+        plt.tight_layout()
 
-    # Create a plot
-    fig2, ax2 = plt.subplots()
+        return fig_lds
 
-    # Create green Bars
-    ax2.bar(r, credits['% Quota Left'], bottom=credits['% Used Quota'], color='#009392', edgecolor='white', width=barWidth, label='% Quota Left')
-    # Create red Bars
-    ax2.bar(r, credits['% Used Quota'], color='#cf597e', edgecolor='white', width=barWidth, label='% Used Quota')
+    ### plot analysis figure
 
+    def plotAnalysis(analysis_df):
 
-    # Custom x axis
-    ax2.set_xticks(r)
-    ax2.set_xticklabels(names)
-    ax2.set_xlabel("Location Data Service")
-    ax2.set_ylabel("%")
+        logger.info('Plotting analysis figure...')
 
-    # Add a legend
-    handles, labels = ax2.get_legend_handles_labels()
-    ax2.legend(handles, labels, loc='upper left', bbox_to_anchor=(0,1,1,0))
-    
-    # Show graphic
-    plt.tight_layout()
+        # plot properties
+        analysis_names = analysis_df.index.tolist()
+        analysis_portions = analysis_df['Analysis Count']
+        cartocolors = ['#7F3C8D','#11A579','#3969AC','#F2B701','#E73F74','#80BA5A','#E68310','#008695','#CF1C90','#f97b72','#4b4b8f','#A5AA99']
+        names_positions = [i for i, _ in enumerate(analysis_names)]
 
-    # horizontal bar chart for analysis count
+        # create plot
+        fig_analysis, ax_analysis = plt.subplots()
 
-    # properties
-    analysis_names = analysis_df.index.tolist()
-    analysis_portions = analysis_df['Analysis Count']
-    cartocolors = ['#7F3C8D','#11A579','#3969AC','#F2B701','#E73F74','#80BA5A','#E68310','#008695','#CF1C90','#f97b72','#4b4b8f','#A5AA99']
-    names_positions = [i for i, _ in enumerate(analysis_names)]
+        # plot bars
+        ax_analysis.barh(names_positions, analysis_portions, color=cartocolors)
 
-    # plot
-    fig1, ax1 = plt.subplots()
-    ax1.barh(names_positions, analysis_portions, color=cartocolors)
-    ax1.set_ylabel("Analysis Type")
-    ax1.set_xlabel("Analysis Count")
-    ax1.set_yticks(names_positions)
-    ax1.set_yticklabels(analysis_names)
-    plt.tight_layout()
+        # customize ticks and labels
+        ax_analysis.set_ylabel("Analysis Type")
+        ax_analysis.set_xlabel("Analysis Count")
+        ax_analysis.set_yticks(names_positions)
+        ax_analysis.set_yticklabels(analysis_names)
+
+        # tight plot
+        plt.tight_layout()
+
+        return fig_analysis
 
     ### create a HTML template
-    logger.info('Preparing HTML template...')
 
-    template = """
-        <!DOCTYPE html>
-        <html lang="en">
+    def generateTemplate(        
+        user, today, 
+        lds, real_storage, used_storage, pc_used, left_storage, pc_left, 
+        total_maps, top_5_maps_date,
+        total_analysis, total_size_analysis, analysis_df,
+        sync, total_dsets, total_size_tbls, top_5_dsets_date, top_5_dsets_size,
+        private, link, public,
+        geo, none_tbls, points, lines, polys,
+        fig_analysis,
+        fig_lds):
 
-        <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>CARTO Database Metrics Report Template</title>
-        <link rel="stylesheet" href="https://libs.cartocdn.com/airship-style/v1.0.3/airship.css">
-        <script src="https://libs.cartocdn.com/airship-components/v1.0.3/airship.js"></script>
-        <style>
-        .as-sidebar{
-            width: 33.33%;
-        }
-        .as-box{
-            border-bottom: 1px solid #F5F5F5;
-        }
-        </style>
+        logger.info('Generating HTML template...')
 
-        </head>
-
-        <body class="as-app-body as-app">
-
-        <header class="as-toolbar">
-            <div class="as-toolbar__item as-title">
-                CARTO Metrics Report 
-            </div>
-            <div class="as-toolbar__item as-display--block as-p--12 as-subheader as-bg--complementary">
-                {{ user }} at {{today}}
-            </div>
-        </header>
-
-        <div class="as-content">
-            <aside class="as-sidebar as-sidebar--left">
-            <div class="as-container">
-                <h1 class="as-box as-title as-font--medium">
-                Maps and Analysis
-                </h1>
-
-                <div class="as-box">
-                    <h2 class="as-title">
-                        Maps
-                    </h2>
-                    <p class="as-body as-font--medium">Number of maps: {{total_maps}}</p>
-                    <div class="as-box" id="maps-table">
-                        {{top_5_maps_date.to_html()}}
-                    </div>
+        template = """
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <meta http-equiv="X-UA-Compatible" content="ie=edge">
+            <title>CARTO Database Metrics Report Template</title>
+            <link rel="stylesheet" href="https://libs.cartocdn.com/airship-style/v1.0.3/airship.css">
+            <script src="https://libs.cartocdn.com/airship-components/v1.0.3/airship.js"></script>
+            <style>
+            .as-sidebar{
+                width: 33.33%;
+            }
+            .as-box{
+                border-bottom: 1px solid #F5F5F5;
+            }
+            </style>
+            </head>                   
+            <body class="as-app-body as-app">
+            <header class="as-toolbar">
+                <div class="as-toolbar__item as-title">
+                    CARTO Metrics Report 
                 </div>
-
-                <div class="as-box">
-                <h2 class="as-title">
-                    Analysis
-                </h2>
-                <ul class="as-list">
-                    <li class="as-list__item">Number of analyses: {{total_analysis}}</li>
-                    <li class="as-list__item">Analyses Size: {{total_size_analysis}} MB</li>
-                </ul>
-                <div class="as-box" id="analysis-table">
-                    {{analysis_df.to_html()}}
+                <div class="as-toolbar__item as-display--block as-p--12 as-subheader as-bg--complementary">
+                    {{ user }} at {{today}}
                 </div>
-                <div class="as-box" id="analysis-fig">
-                    {{html_fig1}}
-                </div>
-                </div>
-            </div>
-            </aside>
-
-            <main class="as-main">
-
-                <h1 class="as-box as-title as-font--medium">
-                    Storage Quota & LDS
-                </h1>
-
-                <div class="as-box">
-                    <h2 class="as-title">
-                        Storage Quota
-                    </h2>
-
-                    <ul class="as-list">
-                        <li class="as-list__item as-font--medium">Account Storage: {{real_storage}} MB</li>
-                        <li class="as-list__item as-color--support-01">Used Quota: {{used_storage}} MB, {{pc_used}} %</li>
-                        <li class="as-list__item as-color--complementary">Quota Left: {{left_storage}} MB, {{pc_left}} %</li>
-                    </ul>
-
-                </div>
-
-                <div class="as-box">
-                    <h2 class="as-title">
-                        Location Data Services
-                    </h2>
-                    
-                    <div class="as-box" id="lds-table">
-                        {{lds.to_html()}}
+            </header>
+            <div class="as-content">
+                <aside class="as-sidebar as-sidebar--left">
+                <div class="as-container">
+                    <h1 class="as-box as-title as-font--medium">
+                    Maps and Analysis
+                    </h1>
+                    <div class="as-box">
+                        <h2 class="as-title">
+                            Maps
+                        </h2>
+                        <p class="as-body as-font--medium">Number of maps: {{total_maps}}</p>
+                        <div class="as-box" id="maps-table">
+                            {{top_5_maps_date.to_html()}}
+                        </div>
                     </div>
 
-                    <div class="as-box" id="lds-fig">
-                        {{html_fig2}}
-                    </div>
-
-                </div>
-
-            </main>
-
-            <aside class="as-sidebar as-sidebar--right">
-            <div class="as-container">
-                <div class="as-box as-title as-font--medium">
-                Datasets
-                </div>
-
-                <div class="as-box">
+                    <div class="as-box">
                     <h2 class="as-title">
-                        Datasets Summary
+                        Analysis
                     </h2>
                     <ul class="as-list">
-                        <li class="as-list__item as-font--medium">Number of tables: {{total_dsets}}</li>
-                        <li class="as-list__item">Sync tables: {{sync}}</li>
-                        <li class="as-list__item">Tables Size: {{total_size_tbls}} MB</li>
+                        <li class="as-list__item">Number of analyses: {{total_analysis}}</li>
+                        <li class="as-list__item">Analyses Size: {{total_size_analysis}} MB</li>
                     </ul>
+                    <div class="as-box" id="analysis-table">
+                        {{analysis_df.to_html()}}
+                    </div>
+                    <div class="as-box" id="analysis-fig">
+                        {{html_fig_analysis}}
+                    </div>
+                    </div>
                 </div>
-
-                <div class="as-box">
-                <h2 class="as-title">
-                    Privacy
-                </h2>
-                <ul class="as-list">
-                    <li class="as-list__item as-color--support-01">🔒 Private: {{private}} tables</li>
-                    <li class="as-list__item as-color--support-02">🔗 Shared with link: {{link}} tables</li>
-                    <li class="as-list__item as-color--support-03">🔓 Public: {{public}} tables</li>
-                </ul>
+                </aside>
+                <main class="as-main">
+                    <h1 class="as-box as-title as-font--medium">
+                        Storage Quota & LDS
+                    </h1>
+                    <div class="as-box">
+                        <h2 class="as-title">
+                            Storage Quota
+                        </h2>
+                        <ul class="as-list">
+                            <li class="as-list__item as-font--medium">Account Storage: {{real_storage}} MB</li>
+                            <li class="as-list__item as-color--support-01">Used Quota: {{used_storage}} MB, {{pc_used}} %</li>
+                            <li class="as-list__item as-color--complementary">Quota Left: {{left_storage}} MB, {{pc_left}} %</li>
+                        </ul>
+                    </div>
+                    <div class="as-box">
+                        <h2 class="as-title">
+                            Location Data Services
+                        </h2>
+                        <div class="as-box" id="lds-table">
+                            {{lds.to_html()}}
+                        </div>
+                        <div class="as-box" id="lds-fig">
+                            {{html_fig_lds}}
+                        </div>
+                    </div>
+                </main>
+                <aside class="as-sidebar as-sidebar--right">
+                <div class="as-container">
+                    <div class="as-box as-title as-font--medium">
+                    Datasets
+                    </div>
+                    <div class="as-box">
+                        <h2 class="as-title">
+                            Datasets Summary
+                        </h2>
+                        <ul class="as-list">
+                            <li class="as-list__item as-font--medium">Number of tables: {{total_dsets}}</li>
+                            <li class="as-list__item">Sync tables: {{sync}}</li>
+                            <li class="as-list__item">Tables Size: {{total_size_tbls}} MB</li>
+                        </ul>
+                    </div>
+                    <div class="as-box">
+                    <h2 class="as-title">
+                        Privacy
+                    </h2>
+                    <ul class="as-list">
+                        <li class="as-list__item as-color--support-01">🔒 Private: {{private}} tables</li>
+                        <li class="as-list__item as-color--support-02">🔗 Shared with link: {{link}} tables</li>
+                        <li class="as-list__item as-color--support-03">🔓 Public: {{public}} tables</li>
+                    </ul>
+                    </div>
+                    <div class="as-box">
+                    <h2 class="as-title">
+                        Geometry
+                    </h2>
+                    <p class="as-body">
+                        Number of geocoded tables: {{geo}}
+                    </p>
+                    <ul class="as-list">
+                        <li class="as-list__item">📌 Points: {{points}} tables</li>
+                        <li class="as-list__item">〰️ Lines: {{lines}} tables</span></li>
+                        <li class="as-list__item">⬛ Polygons: {{polys}} tables</li>
+                    </ul>
+                    <p class="as-body">
+                        Number of non-geocoded tables: {{none_tbls}}
+                    </p>
+                    </div>
+                    <div class="as-box" id="tables-size">
+                        {{top_5_dsets_size.to_html()}}
+                    </div>
+                    <div class="as-box" id="tables-date">
+                        {{top_5_dsets_date.to_html()}}
+                    </div>
                 </div>
-
-                <div class="as-box">
-                <h2 class="as-title">
-                    Geometry
-                </h2>
-                <p class="as-body">
-                    Number of geocoded tables: {{geo}}
-                </p>
-                <ul class="as-list">
-                    <li class="as-list__item">📌 Points: {{points}} tables</li>
-                    <li class="as-list__item">〰️ Lines: {{lines}} tables</span></li>
-                    <li class="as-list__item">⬛ Polygons: {{polys}} tables</li>
-                </ul>
-                <p class="as-body">
-                    Number of non-geocoded tables: {{none_tbls}}
-                </p>
-                </div>
-                
-                <div class="as-box" id="tables-size">
-                    {{top_5_dsets_size.to_html()}}
-                </div>
-
-                <div class="as-box" id="tables-date">
-                    {{top_5_dsets_date.to_html()}}
-                </div>
-
+                </aside>
             </div>
-            </aside>
-        </div>
-        <script>
-            // add airship class to tables 
-            const tableElements = document.querySelectorAll('table');
-            tableElements.forEach(element => element.classList.add("as-table"));
-        </script>
-        </body>
+            <script>
+                // add airship class to tables 
+                const tableElements = document.querySelectorAll('table');
+                tableElements.forEach(element => element.classList.add("as-table"));
+            </script>
+            </body>
+            </html>
+        """
+        rtemplate = Environment(loader=BaseLoader()).from_string(template)
 
-        </html>
-    """
-    rtemplate = Environment(loader=BaseLoader()).from_string(template)
+        logger.info('Rendering HTML report...')
 
-    return rtemplate.render({
-            'user': user,
-        
-            'today': today,
-        
-            'real_storage':real_storage,
-            'used_storage':used_storage,
-            'pc_used':pc_used,
-            'left_storage':left_storage,
-            'pc_left':pc_left,
-        
-            'total_maps':total_maps,
-            'total_analysis':total_analysis,
-            'total_size_analysis':total_size_analysis,
-            'analysis_df': analysis_df,
-            'top_5_maps_date': top_5_maps_date,
-        
-            'sync': sync,
-            'total_dsets':total_dsets,
-            'total_size_tbls':total_size_tbls,
-            'private':private,
-            'link':link,
-            'public':public,
-            'geo':geo,
-            'points':points,
-            'lines':lines,
-            'polys':polys,
-            'none_tbls':none_tbls,
-            'top_5_dsets_size': top_5_dsets_size,
-            'top_5_dsets_date': top_5_dsets_date,
-        
-            'lds': lds,
-        
-            'html_fig1': fig_to_html(fig1),
-            'html_fig2': fig_to_html(fig2)
-        })
+        return rtemplate.render({
+
+                # user and date info
+                'user': user,
+                'today': today,
+
+                # lds and storage info
+                'lds': lds,
+                'real_storage':real_storage,
+                'used_storage':used_storage,
+                'pc_used':pc_used,
+                'left_storage':left_storage,
+                'pc_left':pc_left,
+
+                # maps info
+                'total_maps':total_maps,
+                'total_analysis':total_analysis,
+                'total_size_analysis':total_size_analysis,
+                'analysis_df': analysis_df,
+                'top_5_maps_date': top_5_maps_date,
+
+                # datasets info
+                'sync': sync,
+                'total_dsets':total_dsets,
+                'total_size_tbls':total_size_tbls,
+                'top_5_dsets_size': top_5_dsets_size,
+                'top_5_dsets_date': top_5_dsets_date,
+
+                # privacy info
+                'private':private,
+                'link':link,
+                'public':public,
+
+                # geometry info
+                'geo':geo,
+                'points':points,
+                'lines':lines,
+                'polys':polys,
+                'none_tbls':none_tbls,
+
+                # figures
+                'html_fig_analysis': fig_to_html(fig_analysis),
+                'html_fig_lds': fig_to_html(fig_lds)
+            })
