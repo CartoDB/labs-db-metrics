@@ -687,3 +687,4 @@ class Reporter(object):
                 'html_fig_analysis': fig_to_html(fig_analysis),
                 'html_fig_lds': fig_to_html(fig_lds)
             })
+
