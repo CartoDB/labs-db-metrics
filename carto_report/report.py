@@ -183,6 +183,19 @@ class Reporter(object):
 
         return (points, pc_points, lines, pc_lines, polys, pc_polys, none_tbls, pc_none, geo, pc_geo)
 
+    ### helper - get percentage 
+
+    def getPercentage(self, part, df):
+        percentage = round(part*100/len(df),2)
+        return percentage
+
+    ### helper - get top list
+
+    def getTop5(self, df, col_order, col_index):
+        top5 = df.sort_values([col_order], ascending=False).head()
+        top5 = top5.set_index(col_index)
+        return top5
+
     ### get quota information
 
     def getQuota(self, quota, total_size_tbls):
