@@ -64,11 +64,14 @@ class Reporter(object):
         #lds
         (lds_df) = self.getQuota(user, quota)
 
+        #analysis
+        all_tables_df = getSizes(dsets_df)
+        (analysis_df, analysis_types_df) = getAnalysisNames(all_tables_df)
 
     ### helper - get date
     def getDate(self):
         '''
-        Method to get the exact date of the report
+        Method to get the exact date of the report.
         '''
         now = dt.datetime.now()
         today = now.strftime("%Y-%m-%d %H:%M")
@@ -83,7 +86,7 @@ class Reporter(object):
 
         self.logger.info('Getting all maps data...')
 
-        #helper
+        # helper - get key
         def getKey(obj):
             return obj.updated_at
 
@@ -235,129 +238,81 @@ class Reporter(object):
 
         return lds_df
 
-    ### get storage data
+    ### get analysis and tables data
 
-    def getSizes(self):
+    def getSizes(self, dsets_df):
+        '''
+        Method to get all tables sizes, know cartodbfied and non cartodbfied tables (analysis).
+        '''
+        
+        self.logger.info('Getting list of tables...')
+        
+        all_tables = self.sql.send(
+                    "select pg_class.relname as name from pg_class, pg_roles, pg_namespace" +
+                    " where pg_roles.oid = pg_class.relowner and " +
+                    "pg_roles.rolname = current_user " +
+                    "and pg_namespace.oid = pg_class.relnamespace and pg_class.relkind = 'r'")['rows']
 
-        self.logger.info('Getting list of tables and sizes...')
-
-        # check all table name of account
-        all_tables = []
-
-        tables = self.sql.send(
-            "select pg_class.relname from pg_class, pg_roles, pg_namespace" +
-            " where pg_roles.oid = pg_class.relowner and " +
-            "pg_roles.rolname = current_user " +
-            "and pg_namespace.oid = pg_class.relnamespace and pg_class.relkind = 'r'")
-
-        for k, v in tables.items():
-            if k == 'rows':
-                for itr in v:
-                    all_tables.append(itr['relname'])
-
-        # define array to store all the table sizes
-        arr_size = []
-
+        all_tables_df = json_normalize(all_tables)
+        
+        
+        self.logger.info('Retrieved {} tables.'.format(len(all_tables_df)))
+        
+        dsets_df['cartodbfied'] = 'Yes'
+        all_tables_df = all_tables_df.merge(dsets_df, on='name', how='left')
+        all_tables_df['cartodbfied'] = all_tables_df['cartodbfied'].fillna('No')
+        all_tables_df['size'] = 0
+        
         self.logger.info('Getting table sizes...')
-        # create array with values of the table sizes
-        for i in all_tables:
+        
+        for index, row in all_tables_df.iterrows():
             try:
-                size = self.sql.send("select pg_total_relation_size('" + i + "')")
-                for a, b in size.items():
-                    if a == 'rows':
-                        for itr in b:
-                            size_dataset = itr['pg_total_relation_size']
-                arr_size.append(size_dataset)
+                size = self.sql.send("select pg_total_relation_size('" + row['name'] + "') as size")['rows'][0].get('size')
             except:
-                continue
-                
-        # define variables that have the max and min values of the previous array
-        max_val = max(arr_size)/1048576.00
-        min_val = min(arr_size)/1048576.00
+                self.logger.info('Error at: ' + str(row['name']))
+            
+            all_tables_df.set_value(index,'size',size)
+            
+        self.logger.info('Table sizes retrieved with a sum of {} MB'.format(all_tables_df['size'].sum()))
+            
+        return all_tables_df
 
-        # define count variable
-        sum = 0
+    ### get analysis names table
 
-        # define list of tuples
-        tupleList = []
+    def getAnalysisNames(self, all_tables_df):
+        '''
+        Method to transform analysis ids to analysis names.
+        '''
 
-        self.logger.info('Getting cartodbfied and analysis tables...')
-        # start iterating over array
-        for i in all_tables:
-            # check column names
-            checkCol = []
+        self.logger.info('Getting analysis from tables information...')
 
-            sum = sum + 1
+        analysis_df = all_tables_df.loc[all_tables_df['cartodbfied'] == 'No']
 
-            # check all columns name from table
-            columns_table = "select column_name, data_type FROM information_schema.columns \
-                WHERE table_schema ='" + self.CARTO_USER + "' \
-                AND table_name ='" + i + "';"
+        if len(analysis_df) > 0:
 
-            # apply and get results from SQL API request
-            columnAndTypes = self.sql.send(columns_table)
+            #get analysis id
+            self.logger.info('Replacing analysis id with proper names...')
+            analysis_df['id'] = analysis_df['name'].str.split("_", n = 3, expand = True)[1] 
 
-            for key, value in columnAndTypes.items():
-                if key == 'rows':
-                    for itr in value:
-                        if 'cartodb_id' == itr['column_name']:
-                            checkCol.append(itr['column_name'])
-                        elif 'the_geom' == itr['column_name']:
-                            checkCol.append(itr['column_name'])
-                        elif 'the_geom_webmercator' == itr['column_name']:
-                            checkCol.append(itr['column_name'])
+            #convert equivalences object to a df
+            equivalences = [{"type": "aggregate-intersection", "id": "b194a8f896"},{ "type": "bounding-box", "id": "5f80bdff9d"},{ "type": "bounding-circle", "id": "b7636131b5"},{ "type": "buffer", "id": "2f13a3dbd7"},{ "type": "centroid", "id": "ae64186757"},{ "type": "closest", "id": "4bd65e58e4"},{ "type": "concave-hull", "id": "259cf96ece"},{ "type": "contour", "id": "779051ec8e"},{ "type": "convex-hull", "id": "05234e7c2a"},{ "type": "data-observatory-measure", "id": "a08f3b6124"},{ "type": "data-observatory-multiple-measures", "id": "cd60938c7b"},{ "type": "deprecated-sql-function", "id": "e85ed857c2"},{ "type": "filter-by-node-column", "id": "83d60eb9fa"},{ "type": "filter-category", "id": "440d2c1487"},{ "type": "filter-grouped-rank", "id": "f15fa0b618"},{ "type": "filter-range", "id": "942b6fec82"},{ "type": "filter-rank", "id": "43155891da"},{ "type": "georeference-admin-region", "id": "a5bdb274e8"},{ "type": "georeference-city", "id": "d5b2dd1672"},{ "type": "georeference-country", "id": "792d8938e3"},{ "type": "georeference-ip-address", "id": "d5b2274cdf"},{ "type": "georeference-long-lat", "id": "0623244fc4"},{ "type": "georeference-postal-code", "id": "1f7c6f9f43"},{ "type": "georeference-street-address", "id": "1ea6dec9f3"},{ "type": "gravity", "id": "93ab69856c"},{ "type": "intersection", "id": "971639c870"},{ "type": "kmeans", "id": "3c835a874c"},{ "type": "line-sequential", "id": "9fd29bd5c0"},{ "type": "line-source-to-target", "id": "9e88a1147e"},{ "type": "line-to-column", "id": "be2ff62ce9"},{ "type": "line-to-single-point", "id": "eca516b80b"},{ "type": "link-by-line", "id": "49ca809a90"},{ "type": "merge", "id": "c38cb847a0"},{ "type": "moran", "id": "91837cbb3c"},{ "type": "point-in-polygon", "id": "2e94d3858c"},{ "type": "population-in-area", "id": "d52251dc01"},{ "type": "routing-sequential", "id": "a627e132c2"},{ "type": "routing-to-layer-all-to-all", "id": "b70cf71482"},{ "type": "routing-to-single-point", "id": "2923729eb9"},{ "type": "sampling", "id": "7530d60ffc"},{ "type": "source", "id": "fd83c76763"},{ "type": "spatial-markov-trend", "id": "9c3b798f46"},{ "type": "trade-area", "id": "112d4fc091"},{ "type": "weighted-centroid", "id": "1d85314d7a"}]
+            equivalences_df = json_normalize(equivalences)
 
-            # check indexes
-            checkInd = []
+            #join equivalences to analysis table
+            analysis_df = pd.merge(analysis_df, equivalences_df, on='id', how='left')
 
-            # apply and get results from SQL API request
-            indexes = self.sql.send(
-                "select indexname, indexdef from pg_indexes \
-                where tablename = '" + i + "' \
-                AND schemaname = '" + self.CARTO_USER + "';")
+            #get analysis summuary
+            analysis_types = analysis_df['type'].value_counts()
+            analysis_types_df = analysis_types.to_frame()
+            analysis_types_df = analysis_types_df.rename(columns={'type': 'Analysis Count'})
 
-            for k, v in indexes.items():
-                if k == 'rows':
-                    for itr in v:
-                        if 'the_geom_webmercator_idx' in itr['indexname']:
-                            checkInd.append(itr['indexname'])
-                        elif 'the_geom_idx' in itr['indexname']:
-                            checkInd.append(itr['indexname'])
-                        elif '_pkey' in itr['indexname']:
-                            checkInd.append(itr['indexname'])
-
-            # if indexes and column names exists -> table cartodbified
-            if len(checkInd) >= 3 and len(checkCol) >= 3:
-                cartodbfied = 'YES'
-            else:
-                cartodbfied = 'NO'
-
-            # create graphs according on the table size
-            try:
-                table_size = self.sql.send("select pg_total_relation_size('" + i + "')")
-                for a, b in table_size.items():
-                    if a == 'rows':
-                        for itr in b:
-                            table_size = itr['pg_total_relation_size']
-
-                # bytes to MB
-                val = table_size/1048576.00
-                
-                # Normalize values
-                norm = ((val-min_val)/(max_val-min_val))*100.00
-
-                tupleList.append({
-                    'name': i, 
-                    'size': val, 
-                    'norm_size': norm,
-                    'cartodbfied': cartodbfied})
-
-            except:
-                self.logger.info('Error at: ' + str(i))
-                
-        self.logger.info('Retrieved {} tables with size information.'.format(len(tupleList)))
-
-        return tupleList
+            self.logger.info('{} analysis retrieved, {} different types. '.format(len(analysis_df), analysis_types_df.nunique()))
+                        
+        else:
+            self.logger.info('No analysis found.')   
+                        
+                                        
+        return (analysis_df, analysis_types_df)
 
     ### get tables sizes
 
@@ -400,47 +355,13 @@ class Reporter(object):
         
         return total_size, tbls_size, cdb_tabls, analysis_tbls, top_5_dsets_size, total_size_tbls
 
-    ### get analysis names table
-
-    def getAnalysisNames(self, analysis_tbls):
-
-        self.logger.info('Replacing analysis id with proper names...')
-
-        if len(analysis_tbls) > 0:
-            self.logger.info('Replacing analysis table ids with the right analysis name.')  
-            #get unique analyis id
-            analysis_tbls['id'] = analysis_tbls['name'].str.split("_", n = 3, expand = True)[1] 
-
-            #convert equivalences object to a df
-            equivalences = [{"type": "aggregate-intersection", "id": "b194a8f896"},{ "type": "bounding-box", "id": "5f80bdff9d"},{ "type": "bounding-circle", "id": "b7636131b5"},{ "type": "buffer", "id": "2f13a3dbd7"},{ "type": "centroid", "id": "ae64186757"},{ "type": "closest", "id": "4bd65e58e4"},{ "type": "concave-hull", "id": "259cf96ece"},{ "type": "contour", "id": "779051ec8e"},{ "type": "convex-hull", "id": "05234e7c2a"},{ "type": "data-observatory-measure", "id": "a08f3b6124"},{ "type": "data-observatory-multiple-measures", "id": "cd60938c7b"},{ "type": "deprecated-sql-function", "id": "e85ed857c2"},{ "type": "filter-by-node-column", "id": "83d60eb9fa"},{ "type": "filter-category", "id": "440d2c1487"},{ "type": "filter-grouped-rank", "id": "f15fa0b618"},{ "type": "filter-range", "id": "942b6fec82"},{ "type": "filter-rank", "id": "43155891da"},{ "type": "georeference-admin-region", "id": "a5bdb274e8"},{ "type": "georeference-city", "id": "d5b2dd1672"},{ "type": "georeference-country", "id": "792d8938e3"},{ "type": "georeference-ip-address", "id": "d5b2274cdf"},{ "type": "georeference-long-lat", "id": "0623244fc4"},{ "type": "georeference-postal-code", "id": "1f7c6f9f43"},{ "type": "georeference-street-address", "id": "1ea6dec9f3"},{ "type": "gravity", "id": "93ab69856c"},{ "type": "intersection", "id": "971639c870"},{ "type": "kmeans", "id": "3c835a874c"},{ "type": "line-sequential", "id": "9fd29bd5c0"},{ "type": "line-source-to-target", "id": "9e88a1147e"},{ "type": "line-to-column", "id": "be2ff62ce9"},{ "type": "line-to-single-point", "id": "eca516b80b"},{ "type": "link-by-line", "id": "49ca809a90"},{ "type": "merge", "id": "c38cb847a0"},{ "type": "moran", "id": "91837cbb3c"},{ "type": "point-in-polygon", "id": "2e94d3858c"},{ "type": "population-in-area", "id": "d52251dc01"},{ "type": "routing-sequential", "id": "a627e132c2"},{ "type": "routing-to-layer-all-to-all", "id": "b70cf71482"},{ "type": "routing-to-single-point", "id": "2923729eb9"},{ "type": "sampling", "id": "7530d60ffc"},{ "type": "source", "id": "fd83c76763"},{ "type": "spatial-markov-trend", "id": "9c3b798f46"},{ "type": "trade-area", "id": "112d4fc091"},{ "type": "weighted-centroid", "id": "1d85314d7a"}]
-            equivalences_df = json_normalize(equivalences)
-
-            #join equivalences to analysis table
-            analysis_tbls_eq = pd.merge(equivalences_df, analysis_tbls, on='id')
-            total_analysis = len(analysis_tbls_eq)
-            total_size_analysis = round(analysis_tbls_eq['size'].sum(),2)
-
-            #get analysis summuary
-            analysis_types = analysis_tbls_eq['type'].value_counts()
-            analysis_df = analysis_types.to_frame()
-            analysis_df = analysis_df.rename(columns={'type': 'Analysis Count'})
-        
-        else:
-            total_analysis = 0
-            total_size_analysis = 0
-            analysis_df = pd.DataFrame(columns=['Analysis Count'])
-
-        self.logger.info('{} analysis names replaced '.format(total_analysis))
-
-        return analysis_df, total_analysis, total_size_analysis
-
     ### plot LDS figure
 
     def plotQuota(self, credits):
 
         self.logger.info('Plotting LDS figure...')
 
-            # plot properties
+        # plot properties
         r = list(range(len(credits)))
         barWidth = 0.85
         names = credits.index.tolist()
