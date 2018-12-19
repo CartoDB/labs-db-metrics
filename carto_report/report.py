@@ -48,11 +48,28 @@ class Reporter(object):
         user = self.CARTO_USER
         quota = self.USER_QUOTA
 
-        (maps_df, total_maps, top_5_maps_date) = self.getMaps(vizs)
+        #maps
+        maps_df = self.getMaps(vizs)
+        total_maps = len(vizs) 
+        top_5_maps_date = self.getTop5(maps_df, 'created', 'name')
+
+        #datasets
+        dsets_df = self.getDatasets(dsets)
+        total_dsets = len(dsets)
+        top_5_dsets_date = self.getTop5(dsets_df, 'created', 'name')
+        sync =  self.getSync(dsets_df)
+        (private, link, public) = self.getPrivacy(dsets_df)
+        (points, lines, polys, none_tbls, geo) = self.getGeometry(dsets_df)
+
+        #lds
+        (lds_df) = self.getQuota(user, quota)
 
 
-    ### get date
+    ### helper - get date
     def getDate(self):
+        '''
+        Method to get the exact date of the report
+        '''
         now = dt.datetime.now()
         today = now.strftime("%Y-%m-%d %H:%M")
         return today
@@ -60,6 +77,9 @@ class Reporter(object):
     ### get maps data
 
     def getMaps(self, vizs):
+        '''
+        Method to get a df with the list of maps with names, urls and date of creation.
+        '''
 
         self.logger.info('Getting all maps data...')
 
@@ -74,23 +94,19 @@ class Reporter(object):
         } for viz in sorted(vizs, key=getKey, reverse=True)]
 
         maps_df = json_normalize(maps)
-        total_maps = len(maps)
-
-        #top 5 maps by date 
-        top_5_maps_date = maps_df.head(5)   
-        top_5_maps_date = top_5_maps_date.rename(columns={'created': 'Date', 'name': 'Name'})
-        top_5_maps_date = top_5_maps_date.set_index('Name')
         
-        self.logger.info('Retrieved {} maps'.format(total_maps))
+        self.logger.info('Retrieved {} maps'.format(len(maps_df)))
 
-        return (maps_df, total_maps, top_5_maps_date)
+        return maps_df
 
     ### get dsets data
 
     def getDatasets(self, dsets):
-        self.logger.info('Getting all datasets data...')
+        '''
+        Method to get a df with the list of dsets with names, privacy, sync, geometry and date of creation.
+        '''
 
-        self.logger.info('Retrieved {} datasets'.format(len(dsets)))
+        self.logger.info('Getting all datasets data...')
 
         tables = [{
             'name': table.name, 
@@ -101,18 +117,15 @@ class Reporter(object):
         } for table in dsets]
         
         tables_df = json_normalize(tables)
-        total_dsets = len(dsets)
 
-        top_5_dsets_date = tables_df[['name', 'created', 'privacy', 'synchronization']]
-        top_5_dsets_date = top_5_dsets_date.sort_values(['created'], ascending=False).head()
-        top_5_dsets_date = top_5_dsets_date.rename(columns={'created': 'Date', 'name': 'Dataset', 'privacy': 'Privacy', 'synchronization': 'sync'})
-        top_5_dsets_date = top_5_dsets_date.set_index('Dataset')
+        self.logger.info('Retrieved {} datasets'.format(len(tables_df)))
 
-        self.logger.info('Retrieved {} datasets'.format(total_dsets))
+        return tables_df
 
-        return tables_df, total_dsets, top_5_dsets_date
-
-    def getSyncTables(self, tables_df):
+    def getSync(self, tables_df):
+        '''
+        Method to get the number of sync tables.
+        '''
 
         self.logger.info('Getting privacy and sync information...')
 
@@ -130,6 +143,9 @@ class Reporter(object):
     ### get datasets privacy settings
 
     def getPrivacy(self, tables_df):
+        '''
+        Method to get the number of tables based on their privacy settings (private, link and public).
+        '''
 
         self.logger.info('Getting privacy information...')
 
@@ -144,12 +160,14 @@ class Reporter(object):
     ### get datasets geometry
 
     def getGeometry(self, tables_df):
+        '''
+        Method to get the number of tables with and without geometry. It also returns the geometry type (lines, points and polygons).
+        '''
 
         self.logger.info('Getting geometry information...')
         
         tables_df['geom_type'] = tables_df.geometry.str[0]
 
-        #get geocoded tables
         tables_df['geocoded'] = False
         for i in range(len(tables_df)):
             if tables_df.geom_type[i] in ('ST_Point', 'ST_MultiPolygon', 'ST_Polygon', 'ST_MultiLineString', 'ST_LineString'):
@@ -157,31 +175,19 @@ class Reporter(object):
             else:
                 tables_df['geocoded'][i] = False
 
-        #non-geocoded
         none_tbls = len(tables_df.loc[tables_df['geocoded'] == False])
-        geo = len(tables_df) - none_tbls
-        pc_none = round(none_tbls*100.00/len(tables_df),2)
-        pc_geo = 100 - pc_none
-
-        #polys
+        geo = len(tables_df.loc[tables_df['geocoded'] == True])
         polys = len(tables_df.loc[tables_df['geom_type'].isin(['ST_MultiPolygon', 'Polygon'])])
-        pc_polys = round(polys*100.00/len(tables_df),2)
-
-        #lines
         lines = len(tables_df.loc[tables_df['geom_type'].isin(['ST_LineString', 'MultiLineString'])])
-        pc_lines = round(lines*100.00/len(tables_df),2)
-
-        #points
         points = len(tables_df.loc[tables_df['geom_type'].isin(['ST_Point'])])
-        pc_points = round(points*100.00/len(tables_df),2)
 
-        self.logger.info('{} non-geocoded datasets retrieved ({} %)'.format(none_tbls, pc_none)) 
-        self.logger.info('{} geocoded datasets ({} %)'.format(geo, pc_geo))
-        self.logger.info('{} point datasets ({} %)'.format(points, pc_points))
-        self.logger.info('{} polygon datasets ({} %)'.format(polys, pc_polys))
-        self.logger.info('{} lines datasets ({} %)'.format(lines, pc_lines))
+        self.logger.info('{} non-geocoded datasets retrieved'.format(none_tbls)) 
+        self.logger.info('{} geocoded datasets'.format(geo))
+        self.logger.info('{} point datasets'.format(points))
+        self.logger.info('{} polygon datasets'.format(polys))
+        self.logger.info('{} lines datasets'.format(lines))
 
-        return (points, pc_points, lines, pc_lines, polys, pc_polys, none_tbls, pc_none, geo, pc_geo)
+        return (points, lines, polys, none_tbls, geo)
 
     ### helper - get percentage 
 
@@ -198,38 +204,36 @@ class Reporter(object):
 
     ### get quota information
 
-    def getQuota(self, quota, total_size_tbls):
+    def getQuota(self, user, quota):
+        '''
+        Method to get storage quota and LDS (geocoding, routing, isolines) information as df.
+        '''
 
-        self.logger.info('Getting geocoding, routing and isolines quota information...')
+        self.logger.info('Getting storage quota and geocoding, routing and isolines quota information...')
 
-        quota = pd.DataFrame(self.sql.send('SELECT * FROM cdb_service_quota_info()')['rows'])
-        quota['quota_left'] = quota['monthly_quota']- quota['used_quota']
-        lds = quota[0:3] #leave DO out
+        dsets_size = pd.DataFrame(self.sql.send(
+            "SELECT SUM(pg_total_relation_size(quote_ident(schemaname) || '.' || quote_ident(tablename)))/1000000 as total FROM pg_tables WHERE schemaname = '" + user + "'")['rows'])['total'][0]
+        self.logger.info('Retrieved {} MB as storage quota'.format(dsets_size))
 
-        #calculate % used quota
-        lds['pc_used'] = round(lds.used_quota*100.00/lds.monthly_quota,2)
-
-        #rename column names
-        lds = lds.rename(columns={"monthly_quota": "Monthly Quota", "provider": "Provider", "service": "Service", "soft_limit": "Soft Limit", "used_quota": "Used Quota", "quota_left": "Quota Left", "pc_used": "% Used Quota"})
-
-        #set service as new index
-        lds = lds.set_index('Service')
-
+        lds = pd.DataFrame(self.sql.send('SELECT * FROM cdb_service_quota_info()')['rows'])
         self.logger.info('Retrieved {} Location Data Services'.format(len(lds)))
 
-        self.logger.info('Getting storage quota information...')
-
+        lds = lds[0:3] #leave DO out
+        lds['pc_used'] = round(lds.used_quota*100/lds.monthly_quota,2)
+        lds = lds.rename(columns={"monthly_quota": "Monthly Quota", "provider": "Provider", "service": "Service", "used_quota": "Used", "pc_used": "% Used"})
+        
         real_storage = quota*2
-        used_storage = round(total_size_tbls,2)
-        pc_used = round(used_storage*100.00/real_storage,2)
-        left_storage = round(real_storage - used_storage,2)
-        pc_left = round(left_storage*100.00/real_storage,2)
+        used_storage = round(dsets_size,2)
+        pc_used = round(used_storage*100/real_storage,2)
+        storage = [real_storage, 'carto', 'storage', 'false', used_storage, pc_used]
+        lds.loc[len(lds)] = storage
+        
+        lds = lds.set_index('Service')
+        lds['Left'] = round(lds['Monthly Quota'] - lds['Used'],1)
+        lds['% Left'] = 100.00 - lds['% Used']
+        lds_df = lds[['Monthly Quota', 'Provider', 'Used', '% Used', 'Left', '% Left']]
 
-        credits = lds[['Monthly Quota', 'Used Quota', '% Used Quota']]
-        credits['% Quota Left'] = 100.00 - lds['% Used Quota']
-        credits.loc['storage'] = [quota, used_storage, pc_used, pc_left]
-
-        return lds, real_storage, used_storage, pc_left, pc_used, left_storage, credits
+        return lds_df
 
     ### get storage data
 
