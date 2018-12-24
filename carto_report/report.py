@@ -46,28 +46,41 @@ class Reporter(object):
         vizs = self.vm.all()
         dsets = self.dm.all()
         user = self.CARTO_USER
+        org = self.CARTO_ORG
         quota = self.USER_QUOTA
 
         #maps
         maps_df = self.getMaps(vizs)
-        total_maps = len(vizs) 
         top_5_maps_date = self.getTop5(maps_df, 'created', 'name')
 
         #datasets
         dsets_df = self.getDatasets(dsets)
-        total_dsets = len(dsets)
         top_5_dsets_date = self.getTop5(dsets_df, 'created', 'name')
         sync =  self.getSync(dsets_df)
         (private, link, public) = self.getPrivacy(dsets_df)
         (points, lines, polys, none_tbls, geo) = self.getGeometry(dsets_df)
+        all_tables_df = self.getSizes(dsets_df)
+        tables_sizes = all_tables_df.loc[all_tables_df['cartodbfied'] == 'Yes']
+        top_5_dsets_size = self.getTop5(all_tables_df, 'size', 'name')
 
         #lds
         (lds_df) = self.getQuota(user, quota)
 
         #analysis
-        all_tables_df = getSizes(dsets_df)
-        (analysis_df, analysis_types_df) = getAnalysisNames(all_tables_df)
+        (analysis_df, analysis_types_df) = self.getAnalysisNames(all_tables_df)
 
+        #plots
+        fig_analysis = self.plotAnalysis(analysis_types_df)
+        fig_lds = self.plotQuota(lds_df)
+
+        #date
+        today = self.getDate()
+
+        #report
+        report = self.generateReport(user, org, today, lds_df, maps_df, top_5_maps_date, analysis_types_df, analysis_df, dsets_df, tables_sizes, top_5_dsets_date, top_5_dsets_size, sync, private, link, public, geo, none_tbls, points, lines, polys,fig_analysis,fig_lds)
+
+        return report
+        
     ### helper - get date
     def getDate(self):
         '''
@@ -306,73 +319,33 @@ class Reporter(object):
             analysis_types_df = analysis_types.to_frame()
             analysis_types_df = analysis_types_df.rename(columns={'type': 'Analysis Count'})
 
-            self.logger.info('{} analysis retrieved, {} different types. '.format(len(analysis_df), analysis_types_df.nunique()))
-                        
+            self.logger.info('{} analysis retrieved, {} different types. '.format(len(analysis_df), analysis_types_df.nunique()))         
         else:
             self.logger.info('No analysis found.')   
-                        
-                                        
+                                                
         return (analysis_df, analysis_types_df)
-
-    ### get tables sizes
-
-    def getTableSizes(self,tupleList):
-
-        self.logger.info('Processing cartodbfied and analysis tables...')
-
-        if len(tupleList) > 0:
-            #convert tupleList to df
-            tupleList_df = json_normalize(tupleList)
-
-            #order by norm size value
-            tbls_size = tupleList_df.sort_values(['norm_size'], ascending=False)
-
-            #get sum of sizes and norm sizes
-            total_size = round(tbls_size['size'].sum(),2)
-
-            self.logger.info('Retrieved {} tables with total size of {} MB'.format(len(tupleList_df), total_size))
-
-            #split between tables and analysis tables
-            cdb_tabls = tbls_size.loc[tbls_size['cartodbfied'] == 'YES']
-            analysis_tbls = tbls_size.loc[tbls_size['cartodbfied'] == 'NO']
-            self.logger.info('Retrieved {} cartodbfied tables.'.format(len(analysis_tbls)))
-            self.logger.info('Retrieved {} analysis tables.'.format(len(cdb_tabls)))
-        else: 
-            total_size = 0
-            tbls_size = 0
-            cdb_tabls = pd.DataFrame(columns=['name', 'size'])
-            analysis_tbls = pd.DataFrame(columns=['name', 'size'])
-
-        top_5_dsets_size = cdb_tabls.sort_values(['size'], ascending=False).head()
-        top_5_dsets_size = top_5_dsets_size[['name', 'size']]
-        top_5_dsets_size = top_5_dsets_size.rename(columns={'size': 'Size', 'name': 'Dataset'})
-        top_5_dsets_size = top_5_dsets_size.set_index('Dataset')
-
-        if cdb_tabls['size'].empty:
-            total_size_tbls = 0
-        else:
-            total_size_tbls = round(cdb_tabls['size'].sum(),2)
-        
-        return total_size, tbls_size, cdb_tabls, analysis_tbls, top_5_dsets_size, total_size_tbls
 
     ### plot LDS figure
 
-    def plotQuota(self, credits):
+    def plotQuota(self, lds_df):
+        '''
+        Method to plot a lds and storage bar chart.
+        '''
 
         self.logger.info('Plotting LDS figure...')
 
         # plot properties
-        r = list(range(len(credits)))
+        r = list(range(len(lds_df)))
         barWidth = 0.85
-        names = credits.index.tolist()
+        names = lds_df.index.tolist()
 
         # create a plot
         fig_lds, ax_lds = plt.subplots()
 
         # create used quota / red bars
-        ax_lds.bar(r, credits['% Quota Left'], bottom=credits['% Used Quota'], color='#009392', edgecolor='white', width=barWidth, label='% Quota Left')
+        ax_lds.bar(r, lds_df['% Left'], bottom=lds_df['% Used Quota'], color='#009392', edgecolor='white', width=barWidth, label='% Left')
         # create quota left / red bars
-        ax_lds.bar(r, credits['% Used Quota'], color='#cf597e', edgecolor='white', width=barWidth, label='% Used Quota')
+        ax_lds.bar(r, lds_df['% Used'], color='#cf597e', edgecolor='white', width=barWidth, label='% Used')
 
         # customize ticks and labels
         ax_lds.set_xticks(r)
@@ -391,13 +364,16 @@ class Reporter(object):
 
     ### plot analysis figure
 
-    def plotAnalysis(self, analysis_df):
+    def plotAnalysis(self, analysis_types_df):
+        '''
+        Method to plot a analysis count bar chart.
+        '''
 
         self.logger.info('Plotting analysis figure...')
 
         # plot properties
-        analysis_names = analysis_df.index.tolist()
-        analysis_portions = analysis_df['Analysis Count']
+        analysis_names = analysis_types_df.index.tolist()
+        analysis_portions = analysis_types_df['Analysis Count']
         cartocolors = ['#7F3C8D','#11A579','#3969AC','#F2B701','#E73F74','#80BA5A','#E68310','#008695','#CF1C90','#f97b72','#4b4b8f','#A5AA99']
         names_positions = [i for i, _ in enumerate(analysis_names)]
 
@@ -418,18 +394,21 @@ class Reporter(object):
 
         return fig_analysis
 
-    ### create a HTML template
+    ### generate report with an HTML template
 
-    def generateTemplate(self,
-        user, today, 
-        lds, real_storage, used_storage, pc_used, left_storage, pc_left, 
-        total_maps, top_5_maps_date,
-        total_analysis, total_size_analysis, analysis_df,
-        sync, total_dsets, total_size_tbls, top_5_dsets_date, top_5_dsets_size,
-        private, link, public,
+    def generateReport(self,
+        user, org, today, 
+        lds_df, 
+        maps_df, top_5_maps_date,
+        analysis_types_df, analysis_df,
+        dsets_df, tables_sizes, top_5_dsets_date, top_5_dsets_size,
+        sync, private, link, public,
         geo, none_tbls, points, lines, polys,
-        fig_analysis,
-        fig_lds):
+        fig_analysis,fig_lds):
+
+        '''
+        Method to generate a HTML report.
+        '''
 
         self.logger.info('Generating HTML template...')
 
@@ -458,7 +437,7 @@ class Reporter(object):
                     CARTO Metrics Report 
                 </div>
                 <div class="as-toolbar__item as-display--block as-p--12 as-subheader as-bg--complementary">
-                    {{ user }} at {{today}}
+                    {{ user }} from {{org}} at {{today}}
                 </div>
             </header>
             <div class="as-content">
@@ -486,7 +465,7 @@ class Reporter(object):
                         <li class="as-list__item">Analyses Size: {{total_size_analysis}} MB</li>
                     </ul>
                     <div class="as-box" id="analysis-table">
-                        {{analysis_df.to_html()}}
+                        {{analysis_types_df.to_html()}}
                     </div>
                     <div class="as-box" id="analysis-fig">
                         {{html_fig_analysis}}
@@ -582,31 +561,32 @@ class Reporter(object):
 
         self.logger.info('Rendering HTML report...')
 
-        return rtemplate.render({
+        report = rtemplate.render({
 
                 # user and date info
                 'user': user,
+                'org': org,
                 'today': today,
 
                 # lds and storage info
-                'lds': lds,
-                'real_storage':real_storage,
-                'used_storage':used_storage,
-                'pc_used':pc_used,
-                'left_storage':left_storage,
-                'pc_left':pc_left,
+                'lds': lds_df,
+                'real_storage':lds_df['storage']['Monthly Quota'],
+                'used_storage':lds_df['storage']['Used'],
+                'pc_used':lds_df['storage']['% Used'],
+                'left_storage':lds_df['storage']['Left'],
+                'pc_left':lds_df['storage']['% Left'],
 
                 # maps info
-                'total_maps':total_maps,
-                'total_analysis':total_analysis,
-                'total_size_analysis':total_size_analysis,
-                'analysis_df': analysis_df,
+                'total_maps': len(maps_df),
+                'total_analysis': len(analysis_df),
+                'total_size_analysis': analysis_df['size'].sum(),
+                'analysis_types_df': analysis_types_df,
                 'top_5_maps_date': top_5_maps_date,
 
                 # datasets info
                 'sync': sync,
-                'total_dsets':total_dsets,
-                'total_size_tbls':total_size_tbls,
+                'total_dsets': len(dsets_df),
+                'total_size_tbls': tables_sizes['size'].sum(),
                 'top_5_dsets_size': top_5_dsets_size,
                 'top_5_dsets_date': top_5_dsets_date,
 
@@ -626,4 +606,6 @@ class Reporter(object):
                 'html_fig_analysis': fig_to_html(fig_analysis),
                 'html_fig_lds': fig_to_html(fig_lds)
             })
+        
+        return report
 
