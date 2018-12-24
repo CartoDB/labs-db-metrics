@@ -94,3 +94,6 @@ Known Issues
 - [x] Include logging as a proper library.
 - [x] Add functions.
 - [x] Debug get table sizes section.
+- [ ] Generate plots with js library (like vega) instead of matplotlib.
+- [ ] Add urls to dataset tables.
+- [ ] Make maps urls clickable.

@@ -70,7 +70,7 @@ class Reporter(object):
         (lds_df) = self.getQuota(user, quota)
 
         #analysis
-        (analysis_df, analysis_types_df) = self.getAnalysisNames(all_tables_df)
+        (analysis_df, analysis_types_df) = self.getCachedAnalysisNames(all_tables_df)
 
         #plots
         fig_analysis = self.plotAnalysis(analysis_types_df)
@@ -290,7 +290,7 @@ class Reporter(object):
             try:
                 size = self.sql.send("select pg_total_relation_size('" + row['name'] + "') as size")['rows'][0].get('size')
             except:
-                self.logger.info('Error at: ' + str(row['name']))
+                self.logger.warning('Error at: ' + str(row['name']))
             
             all_tables_df.set_value(index,'size',size)
             
@@ -300,9 +300,9 @@ class Reporter(object):
 
     ### get analysis names table
 
-    def getAnalysisNames(self, all_tables_df):
+    def getCachedAnalysisNames(self, all_tables_df):
         '''
-        Method to transform analysis ids to analysis names.
+        Method to transform cached analysis ids to analysis names.
         '''
 
         self.logger.info('Getting analysis from tables information...')
@@ -329,7 +329,7 @@ class Reporter(object):
 
             self.logger.info('{} analysis retrieved, {} different types. '.format(len(analysis_df), analysis_types_df.nunique()))         
         else:
-            self.logger.info('No analysis found.')   
+            self.logger.warning('No analysis found.')   
                                                 
         return (analysis_df, analysis_types_df)
 
@@ -460,17 +460,18 @@ class Reporter(object):
                         </h2>
                         <p class="as-body as-font--medium">Number of maps: {{total_maps}}</p>
                         <div class="as-box" id="maps-table">
+                            <h3 class="as-subheader">Top 5 Maps by Date</h3>
                             {{top_5_maps_date.to_html()}}
                         </div>
                     </div>
 
                     <div class="as-box">
                     <h2 class="as-title">
-                        Analysis
+                        Builder Cached Analysis
                     </h2>
                     <ul class="as-list">
-                        <li class="as-list__item">Number of analyses: {{total_analysis}}</li>
-                        <li class="as-list__item">Analyses Size: {{total_size_analysis}} MB</li>
+                        <li class="as-list__item">Number of cached analyses: {{total_analysis}}</li>
+                        <li class="as-list__item">Cached Analyses Size: {{total_size_analysis}} MB</li>
                     </ul>
                     <div class="as-box" id="analysis-table">
                         {{analysis_types_df.to_html()}}
@@ -549,9 +550,11 @@ class Reporter(object):
                     </p>
                     </div>
                     <div class="as-box" id="tables-size">
+                        <h3 class="as-subheader">Top 5 Datasets by Size</h3>
                         {{top_5_dsets_size.to_html()}}
                     </div>
                     <div class="as-box" id="tables-date">
+                        <h3 class="as-subheader">Top 5 Datasets by Date</h3>
                         {{top_5_dsets_date.to_html()}}
                     </div>
                 </div>
@@ -582,7 +585,7 @@ class Reporter(object):
                 'used_storage':lds_df.iloc[3]['Used'],
                 'pc_used':lds_df.iloc[3]['% Used'],
                 'left_storage':lds_df.iloc[3]['Left'],
-                'pc_left':lds_df.iloc[3]['% Left'],
+                'pc_left':round(lds_df.iloc[3]['% Left'],2),
 
                 # maps info
                 'total_maps': len(maps_df),
@@ -595,8 +598,8 @@ class Reporter(object):
                 'sync': sync,
                 'total_dsets': len(dsets_df),
                 'total_size_tbls': tables_sizes['size'].sum(),
-                'top_5_dsets_size': top_5_dsets_size,
-                'top_5_dsets_date': top_5_dsets_date,
+                'top_5_dsets_size': top_5_dsets_size[['size']],
+                'top_5_dsets_date': top_5_dsets_date[['created']],
 
                 # privacy info
                 'private':private,
