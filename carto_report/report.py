@@ -2,6 +2,7 @@
 
 import logging
 import re
+import time
 import datetime as dt
 
 import pandas as pd
@@ -43,6 +44,8 @@ class Reporter(object):
         '''
         Main method to get the full report
         '''
+        start = time.time()
+
         vizs = self.vm.all()
         dsets = self.dm.all()
         user = self.CARTO_USER
@@ -78,6 +81,11 @@ class Reporter(object):
 
         #report
         report = self.generateReport(user, org, today, lds_df, maps_df, top_5_maps_date, analysis_types_df, analysis_df, dsets_df, tables_sizes, top_5_dsets_date, top_5_dsets_size, sync, private, link, public, geo, none_tbls, points, lines, polys,fig_analysis,fig_lds)
+
+        end = time.time()
+        duration = end - start
+
+        self.logger.info('Time: start at {}, end at {}, duration: {}'.format(start, end, duration))
 
         return report
 
