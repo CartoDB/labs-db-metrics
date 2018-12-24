@@ -243,12 +243,12 @@ class Reporter(object):
         self.logger.info('Retrieved {} Location Data Services'.format(len(lds)))
 
         lds = lds[0:3] #leave DO out
-        lds['pc_used'] = round(lds['used_quota']*100/lds['monthly_quota'],2)
+        lds['pc_used'] = round(lds['used_quota']*100.00/lds['monthly_quota'],2)
         lds = lds.rename(columns={"monthly_quota": "Monthly Quota", "provider": "Provider", "service": "Service", "used_quota": "Used", "pc_used": "% Used"})
         
         real_storage = quota*2
         used_storage = round(dsets_size,2)
-        pc_used = round(used_storage*100/real_storage,2)
+        pc_used = round(used_storage*100.00/real_storage,2)
         storage = [real_storage, 'carto', 'storage', 'false', used_storage, pc_used]
         lds.loc[len(lds)] = storage
         
