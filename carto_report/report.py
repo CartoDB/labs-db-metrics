@@ -80,7 +80,7 @@ class Reporter(object):
         report = self.generateReport(user, org, today, lds_df, maps_df, top_5_maps_date, analysis_types_df, analysis_df, dsets_df, tables_sizes, top_5_dsets_date, top_5_dsets_size, sync, private, link, public, geo, none_tbls, points, lines, polys,fig_analysis,fig_lds)
 
         return report
-        
+
     ### helper - get date
     def getDate(self):
         '''
@@ -343,7 +343,7 @@ class Reporter(object):
         fig_lds, ax_lds = plt.subplots()
 
         # create used quota / red bars
-        ax_lds.bar(r, lds_df['% Left'], bottom=lds_df['% Used Quota'], color='#009392', edgecolor='white', width=barWidth, label='% Left')
+        ax_lds.bar(r, lds_df['% Left'], bottom=lds_df['% Used'], color='#009392', edgecolor='white', width=barWidth, label='% Left')
         # create quota left / red bars
         ax_lds.bar(r, lds_df['% Used'], color='#cf597e', edgecolor='white', width=barWidth, label='% Used')
 
@@ -570,11 +570,11 @@ class Reporter(object):
 
                 # lds and storage info
                 'lds': lds_df,
-                'real_storage':lds_df['storage']['Monthly Quota'],
-                'used_storage':lds_df['storage']['Used'],
-                'pc_used':lds_df['storage']['% Used'],
-                'left_storage':lds_df['storage']['Left'],
-                'pc_left':lds_df['storage']['% Left'],
+                'real_storage':lds_df.iloc[3]['Monthly Quota'],
+                'used_storage':lds_df.iloc[3]['Used'],
+                'pc_used':lds_df.iloc[3]['% Used'],
+                'left_storage':lds_df.iloc[3]['Left'],
+                'pc_left':lds_df.iloc[3]['% Left'],
 
                 # maps info
                 'total_maps': len(maps_df),
