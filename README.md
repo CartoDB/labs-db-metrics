@@ -81,7 +81,7 @@ Where the different parameters are:
 * `CARTO_USER`: user name of the account to check
 * `CARTO_API_URL`: this is usually `https://{CARTO_USER}.carto.com/` but may differ if you are not using `carto.com` accounts
 * `CARTO_API_KEY`: your CARTO ENGINE master API key
-* `USER_QUOTA`: your LDS quota
+* `USER_QUOTA`: your storage quota in MB
 
 
 Known Issues
